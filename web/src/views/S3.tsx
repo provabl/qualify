@@ -10,9 +10,9 @@ import Input from '@cloudscape-design/components/input'
 import Select, { SelectProps } from '@cloudscape-design/components/select'
 import Toggle from '@cloudscape-design/components/toggle'
 import Flashbar from '@cloudscape-design/components/flashbar'
-import Alert from '@cloudscape-design/components/alert'
 import { agentService } from '@/services/agent'
 import type { CreateBucketRequest, S3Bucket, PolicyDecision, TrainingModule } from '@/types/api'
+import TrainingGate from '@/components/training/TrainingGate'
 
 // Region options
 const regionOptions = [
@@ -216,29 +216,13 @@ export default function S3() {
         S3 Buckets
       </Header>
 
-      {/* Training Required Alert */}
+      {/* Training Required Gate */}
       {trainingRequired && trainingRequired.length > 0 && (
-        <Alert
-          type="warning"
-          dismissible
+        <TrainingGate
+          requiredModules={trainingRequired}
+          operationName="S3 bucket creation"
           onDismiss={() => setTrainingRequired(null)}
-        >
-          <SpaceBetween size="m">
-            <Box variant="strong">Training Required</Box>
-            <Box>Complete the following modules before creating S3 buckets:</Box>
-            <SpaceBetween size="s">
-              {trainingRequired.map((module, index) => (
-                <div key={module.id}>
-                  <Box>{index + 1}. {module.title} ({module.estimated_minutes} minutes)</Box>
-                  <Box fontSize="body-s" color="text-body-secondary">
-                    Start training: http://localhost:8080/training/{module.name}
-                  </Box>
-                </div>
-              ))}
-            </SpaceBetween>
-            <Box>After completing training, try again.</Box>
-          </SpaceBetween>
-        </Alert>
+        />
       )}
 
       {/* Bucket Creation Form */}
