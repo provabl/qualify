@@ -179,6 +179,21 @@ func setupRouter(auditSvc *audit.Service, trainingSvc *training.Service) http.Ha
 
 		r.Route("/training", func(r chi.Router) {
 			r.Get("/progress/{user_id}", handleGetUserProgress(trainingSvc))
+			r.Get("/modules", handleListModules(trainingSvc))
+			r.Get("/modules/{id}", handleGetModule(trainingSvc))
+			r.Post("/modules/{id}/start", handleStartModule(trainingSvc))
+			r.Post("/modules/{id}/complete", handleCompleteModule(trainingSvc))
+			r.Post("/modules/{id}/quiz/submit", handleSubmitQuiz(trainingSvc))
+			r.Get("/activity/{user_id}", handleGetUserActivity(trainingSvc))
+		})
+
+		r.Route("/dashboard", func(r chi.Router) {
+			r.Get("/stats/{user_id}", handleGetDashboardStats(trainingSvc))
+		})
+
+		r.Route("/users", func(r chi.Router) {
+			r.Get("/{user_id}/profile", handleGetUserProfile(trainingSvc))
+			r.Put("/{user_id}/profile", handleUpdateUserProfile(trainingSvc))
 		})
 
 		// Future endpoints
@@ -252,4 +267,13 @@ func getEnvInt(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+// parseIntQueryParam parses an integer query parameter
+func parseIntQueryParam(value string) (int, error) {
+	var intVal int
+	if _, err := fmt.Sscanf(value, "%d", &intVal); err != nil {
+		return 0, err
+	}
+	return intVal, nil
 }
