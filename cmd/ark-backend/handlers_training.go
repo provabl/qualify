@@ -183,10 +183,10 @@ func handleStartModule(trainingSvc *training.Service) http.HandlerFunc {
 		)
 
 		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"status":     "started",
-			"message":    "Module started successfully",
-			"user_id":    req.UserID,
-			"module_id":  moduleID,
+			"status":    "started",
+			"message":   "Module started successfully",
+			"user_id":   req.UserID,
+			"module_id": moduleID,
 		})
 	}
 }

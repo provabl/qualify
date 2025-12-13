@@ -74,12 +74,12 @@ type ActivityItem struct {
 
 // TrainingSummary represents user training completion statistics
 type TrainingSummary struct {
-	TotalModules         int     `json:"total_modules"`
-	Completed            int     `json:"completed"`
-	InProgress           int     `json:"in_progress"`
-	NotStarted           int     `json:"not_started"`
-	CompletionPercentage int     `json:"completion_percentage"`
-	AverageScore         *int    `json:"average_score,omitempty"`
+	TotalModules         int  `json:"total_modules"`
+	Completed            int  `json:"completed"`
+	InProgress           int  `json:"in_progress"`
+	NotStarted           int  `json:"not_started"`
+	CompletionPercentage int  `json:"completion_percentage"`
+	AverageScore         *int `json:"average_score,omitempty"`
 }
 
 // AvailableOps represents available and locked AWS operations
@@ -90,10 +90,10 @@ type AvailableOps struct {
 
 // DashboardStats represents user dashboard data
 type DashboardStats struct {
-	UserID           string          `json:"user_id"`
-	TrainingSummary  TrainingSummary `json:"training_summary"`
-	RecentActivity   []ActivityItem  `json:"recent_activity"`
-	AvailableOps     AvailableOps    `json:"available_operations"`
+	UserID          string          `json:"user_id"`
+	TrainingSummary TrainingSummary `json:"training_summary"`
+	RecentActivity  []ActivityItem  `json:"recent_activity"`
+	AvailableOps    AvailableOps    `json:"available_operations"`
 }
 
 // UserPreferences represents user preferences and settings

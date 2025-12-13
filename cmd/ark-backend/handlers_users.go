@@ -56,10 +56,10 @@ func handleUpdateUserProfile(trainingSvc *training.Service) http.HandlerFunc {
 		}
 
 		var updates struct {
-			Email       *string                     `json:"email,omitempty"`
-			Name        *string                     `json:"name,omitempty"`
-			Institution *string                     `json:"institution,omitempty"`
-			Preferences *training.UserPreferences   `json:"preferences,omitempty"`
+			Email       *string                   `json:"email,omitempty"`
+			Name        *string                   `json:"name,omitempty"`
+			Institution *string                   `json:"institution,omitempty"`
+			Preferences *training.UserPreferences `json:"preferences,omitempty"`
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
