@@ -1,4 +1,4 @@
-.PHONY: help check test integration build build-all clean install-tools docker-build docker-up docker-down web-dev web-build
+.PHONY: help check test integration build build-all clean install-tools docker-build docker-up docker-down web-dev web-build web-test web-test-unit web-test-e2e web-coverage
 
 # Variables
 VERSION ?= dev
@@ -41,7 +41,10 @@ help:
 	@echo "Web:"
 	@echo "  web-dev         Start web development server"
 	@echo "  web-build       Build web production bundle"
-	@echo "  web-test        Run web tests (Vitest + Playwright)"
+	@echo "  web-test        Run all web tests (unit + E2E)"
+	@echo "  web-test-unit   Run web unit tests only"
+	@echo "  web-test-e2e    Run web E2E tests only"
+	@echo "  web-coverage    Generate web test coverage report"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  clean           Remove build artifacts"
@@ -138,12 +141,27 @@ web-build:
 	@cd web && npm run build
 	@echo "✓ Web bundle built: web/dist/"
 
-## web-test: Run web tests
-web-test:
+## web-test: Run all web tests (unit + E2E)
+web-test: web-test-unit web-test-e2e
+	@echo "✓ All web tests passed"
+
+## web-test-unit: Run web unit tests
+web-test-unit:
 	@echo "→ Running web unit tests..."
-	@cd web && npm run test:unit
+	@cd web && npm run test:unit:run
+	@echo "✓ Web unit tests passed"
+
+## web-test-e2e: Run web E2E tests
+web-test-e2e:
 	@echo "→ Running web E2E tests..."
 	@cd web && npm run test:e2e
+	@echo "✓ Web E2E tests passed"
+
+## web-coverage: Generate web test coverage report
+web-coverage:
+	@echo "→ Generating web test coverage..."
+	@cd web && npm run test:unit:coverage
+	@echo "✓ Coverage report generated in web/coverage/"
 
 ## clean: Remove build artifacts
 clean:
@@ -151,6 +169,9 @@ clean:
 	@rm -rf bin/
 	@rm -f coverage.out
 	@rm -rf web/dist/
+	@rm -rf web/coverage/
+	@rm -rf web/playwright-report/
+	@rm -rf web/test-results/
 	@echo "✓ Cleaned"
 
 # Development workflow targets
