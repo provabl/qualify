@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/scttfrdmn/ark/internal/agent/store"
+	"github.com/provabl/ark/internal/agent/store"
 )
 
 // Client wraps AWS SDK clients and configuration

@@ -32,7 +32,7 @@ Getting Started:
   2. Configure profile: ark config set profile default
   3. Run AWS commands: ark s3 create-bucket my-bucket
 
-For more information: https://github.com/scttfrdmn/ark`,
+For more information: https://github.com/provabl/ark`,
 	Version: fmt.Sprintf("%s (commit: %s, built: %s)", Version, CommitSHA, BuildDate),
 }
 

@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/scttfrdmn/ark/internal/training"
+	"github.com/provabl/ark/internal/training"
 )
 
 // handleGetDashboardStats retrieves dashboard statistics for a user

@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/scttfrdmn/ark/internal/agent/aws"
+	"github.com/provabl/ark/internal/agent/aws"
 )
 
 // handleCreateBucket handles S3 bucket creation requests

@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/scttfrdmn/ark/internal/agent/daemon"
-	"github.com/scttfrdmn/ark/internal/agent/lockfile"
+	"github.com/provabl/ark/internal/agent/daemon"
+	"github.com/provabl/ark/internal/agent/lockfile"
 	"github.com/spf13/cobra"
 )
 

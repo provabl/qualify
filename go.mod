@@ -1,4 +1,4 @@
-module github.com/scttfrdmn/ark
+module github.com/provabl/ark
 
 go 1.24.0
 

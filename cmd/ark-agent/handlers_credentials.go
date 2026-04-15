@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/scttfrdmn/ark/internal/agent/store"
+	"github.com/provabl/ark/internal/agent/store"
 )
 
 // handleSetCredentials stores AWS credentials for a profile

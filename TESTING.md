@@ -60,7 +60,7 @@ func TestServiceMethod(t *testing.T) {
 Use `internal/training/testhelpers.go` for database mocking:
 
 ```go
-import "github.com/scttfrdmn/ark/internal/training"
+import "github.com/provabl/ark/internal/training"
 
 // Create test helper
 sqlDB, mock, _ := sqlmock.New()

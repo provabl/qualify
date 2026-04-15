@@ -15,8 +15,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/scttfrdmn/ark/internal/agent/lockfile"
-	"github.com/scttfrdmn/ark/internal/agent/store"
+	"github.com/provabl/ark/internal/agent/lockfile"
+	"github.com/provabl/ark/internal/agent/store"
 )
 
 var (

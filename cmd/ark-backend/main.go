@@ -14,9 +14,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/scttfrdmn/ark/internal/audit"
-	"github.com/scttfrdmn/ark/internal/database"
-	"github.com/scttfrdmn/ark/internal/training"
+	"github.com/provabl/ark/internal/audit"
+	"github.com/provabl/ark/internal/database"
+	"github.com/provabl/ark/internal/training"
 )
 
 var (

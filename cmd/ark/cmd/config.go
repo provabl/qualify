@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/scttfrdmn/ark/internal/config"
+	"github.com/provabl/ark/internal/config"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )

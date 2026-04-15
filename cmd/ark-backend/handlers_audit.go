@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/scttfrdmn/ark/internal/audit"
+	"github.com/provabl/ark/internal/audit"
 )
 
 // handleLogAudit receives and stores audit log entries from the agent

@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/scttfrdmn/ark/internal/database"
+	"github.com/provabl/ark/internal/database"
 )
 
 // Service provides audit logging functionality

@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/lib/pq"
-	"github.com/scttfrdmn/ark/internal/database"
+	"github.com/provabl/ark/internal/database"
 )
 
 // Service provides training policy enforcement functionality
