@@ -5,19 +5,62 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
+	"strings"
+	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
+	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/lib/pq"
 	"github.com/provabl/ark/internal/database"
 )
 
+// iamTagWriter is the interface for writing IAM role tags.
+// Defined as an interface to enable mocking in tests.
+type iamTagWriter interface {
+	TagRole(ctx context.Context, params *iam.TagRoleInput, optFns ...func(*iam.Options)) (*iam.TagRoleOutput, error)
+}
+
+// moduleTagMap maps Ark training module IDs to attest:* IAM tag keys.
+// When a researcher completes a module, Ark writes these tags to their IAM role
+// so attest's principal resolver can evaluate them in Cedar policies.
+var moduleTagMap = map[string]string{
+	"cui-fundamentals":        "attest:cui-training",
+	"hipaa-privacy-security":  "attest:hipaa-training",
+	"security-awareness":      "attest:awareness-training",
+	"ferpa-basics":            "attest:ferpa-training",
+	"itar-export-control":     "attest:itar-training",
+	"data-classification":     "attest:data-class-training",
+}
+
+// defaultTrainingExpiry is how long a training certification is valid.
+const defaultTrainingExpiry = 365 * 24 * time.Hour
+
 // Service provides training policy enforcement functionality
 type Service struct {
-	db *database.DB
+	db         *database.DB
+	iamTagger  iamTagWriter // optional; nil = no IAM tagging
+	awsRegion  string
 }
 
 // NewService creates a new training service
 func NewService(db *database.DB) *Service {
 	return &Service{db: db}
+}
+
+// NewServiceWithIAM creates a training service that writes attest:* tags to IAM roles
+// on training completion. The userRoleARNFunc is called to resolve a user's IAM role ARN.
+func NewServiceWithIAM(ctx context.Context, db *database.DB, region string) *Service {
+	svc := &Service{db: db, awsRegion: region}
+	cfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(region))
+	if err != nil {
+		log.Printf("ark/training: could not init IAM client for attest tagging: %v", err)
+		return svc
+	}
+	svc.iamTagger = iam.NewFromConfig(cfg)
+	return svc
 }
 
 // CheckTrainingGate evaluates if a user meets training requirements for an action
@@ -280,9 +323,11 @@ func (s *Service) StartModule(ctx context.Context, userID, moduleID string) erro
 	return nil
 }
 
-// CompleteModule marks a module as completed for a user
+// CompleteModule marks a module as completed for a user.
+// If the service was initialized with IAM credentials and the user has a roleARN
+// registered, it writes attest:* tags to enable Cedar policy enforcement in attest.
 func (s *Service) CompleteModule(ctx context.Context, userID, moduleID string, score int) error {
-	// Upsert progress record
+	// Upsert progress record.
 	query := `
 		INSERT INTO user_training_progress (user_id, module_id, status, started_at, completed_at, score)
 		VALUES ($1, $2, 'completed', NOW(), NOW(), $3)
@@ -292,18 +337,83 @@ func (s *Service) CompleteModule(ctx context.Context, userID, moduleID string, s
 			completed_at = NOW(),
 			score = $3
 	`
-
 	_, err := s.db.ExecContext(ctx, query, userID, moduleID, score)
 	if err != nil {
 		return fmt.Errorf("complete module: %w", err)
 	}
 
-	// Record completion activity
+	// Record completion activity.
 	_ = s.RecordActivity(ctx, userID, "module_completed", moduleID, map[string]interface{}{
 		"score": score,
 	})
 
+	// Write attest:* tags to the user's IAM role (non-fatal if it fails).
+	// This enables attest's Cedar policies to evaluate principal.cui_training_current etc.
+	if s.iamTagger != nil {
+		roleARN := s.getUserRoleARN(ctx, userID)
+		if roleARN != "" {
+			expiresAt := time.Now().Add(defaultTrainingExpiry)
+			if tagErr := s.writeAttestTags(ctx, roleARN, moduleID, expiresAt); tagErr != nil {
+				// Non-fatal: log but don't fail training completion.
+				log.Printf("ark/training: could not write attest tags for user %s module %s: %v", userID, moduleID, tagErr)
+			}
+		}
+	}
+
 	return nil
+}
+
+// getUserRoleARN retrieves the IAM role ARN associated with a user.
+// The role ARN is stored in user metadata (attest:role-arn tag on the user record).
+func (s *Service) getUserRoleARN(ctx context.Context, userID string) string {
+	var roleARN string
+	row := s.db.QueryRowContext(ctx,
+		`SELECT metadata->>'role_arn' FROM users WHERE id = $1`, userID)
+	_ = row.Scan(&roleARN)
+	return roleARN
+}
+
+// writeAttestTags writes attest:* IAM role tags when training is completed.
+// Enables attest's principal resolver to read training status for Cedar evaluation.
+func (s *Service) writeAttestTags(ctx context.Context, roleARN, moduleID string, expiresAt time.Time) error {
+	tagKey, ok := moduleTagMap[moduleID]
+	if !ok {
+		return nil // no attest mapping for this module
+	}
+
+	roleName := extractRoleName(roleARN)
+	if roleName == "" {
+		return fmt.Errorf("could not extract role name from ARN: %s", roleARN)
+	}
+
+	tags := []iamtypes.Tag{
+		{Key: aws.String(tagKey), Value: aws.String("true")},
+		{Key: aws.String(tagKey + "-expiry"), Value: aws.String(expiresAt.Format(time.RFC3339))},
+	}
+
+	_, err := s.iamTagger.TagRole(ctx, &iam.TagRoleInput{
+		RoleName: aws.String(roleName),
+		Tags:     tags,
+	})
+	if err != nil {
+		return fmt.Errorf("tagging IAM role %s: %w", roleName, err)
+	}
+	return nil
+}
+
+// extractRoleName extracts the role name from an IAM role ARN.
+// "arn:aws:iam::123456789012:role/my-role" → "my-role"
+func extractRoleName(arn string) string {
+	const prefix = ":role/"
+	idx := strings.LastIndex(arn, prefix)
+	if idx == -1 {
+		return ""
+	}
+	name := arn[idx+len(prefix):]
+	if i := strings.LastIndex(name, "/"); i != -1 {
+		name = name[i+1:]
+	}
+	return name
 }
 
 // SubmitQuiz evaluates quiz answers and returns results
