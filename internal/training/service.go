@@ -14,7 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/lib/pq"
-	"github.com/provabl/ark/internal/database"
+	"github.com/provabl/qualify/internal/database"
 )
 
 // iamTagWriter is the interface for writing IAM role tags.
@@ -23,16 +23,17 @@ type iamTagWriter interface {
 	TagRole(ctx context.Context, params *iam.TagRoleInput, optFns ...func(*iam.Options)) (*iam.TagRoleOutput, error)
 }
 
-// moduleTagMap maps Ark training module IDs to attest:* IAM tag keys.
-// When a researcher completes a module, Ark writes these tags to their IAM role
+// moduleTagMap maps qualify training module IDs to attest:* IAM tag keys.
+// When a researcher completes a module, qualify writes these tags to their IAM role
 // so attest's principal resolver can evaluate them in Cedar policies.
 var moduleTagMap = map[string]string{
-	"cui-fundamentals":        "attest:cui-training",
-	"hipaa-privacy-security":  "attest:hipaa-training",
-	"security-awareness":      "attest:awareness-training",
-	"ferpa-basics":            "attest:ferpa-training",
-	"itar-export-control":     "attest:itar-training",
-	"data-classification":     "attest:data-class-training",
+	"cui-fundamentals":       "attest:cui-training",
+	"hipaa-privacy-security": "attest:hipaa-training",
+	"security-awareness":     "attest:awareness-training",
+	"ferpa-basics":           "attest:ferpa-training",
+	"itar-export-control":    "attest:itar-training",
+	"data-classification":    "attest:data-class-training",
+	"nih-research-security": "attest:research-security-training",
 }
 
 // defaultTrainingExpiry is how long a training certification is valid.
@@ -40,9 +41,9 @@ const defaultTrainingExpiry = 365 * 24 * time.Hour
 
 // Service provides training policy enforcement functionality
 type Service struct {
-	db         *database.DB
-	iamTagger  iamTagWriter // optional; nil = no IAM tagging
-	awsRegion  string
+	db        *database.DB
+	iamTagger iamTagWriter // optional; nil = no IAM tagging
+	awsRegion string
 }
 
 // NewService creates a new training service

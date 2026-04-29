@@ -15,9 +15,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "ark",
-	Short: "Ark - AWS Research Kit for academic institutions",
-	Long: `Ark provides integrated AWS training and security tooling for research institutions.
+	Use:   "qualify",
+	Short: "qualify - Researcher training & access gating for academic institutions",
+	Long: `qualify provides integrated researcher training and security tooling for research institutions.
 
 The training-as-tool approach embeds security education directly into AWS workflows,
 ensuring researchers can use cloud resources safely and compliantly from day one.
@@ -32,7 +32,7 @@ Getting Started:
   2. Configure profile: ark config set profile default
   3. Run AWS commands: ark s3 create-bucket my-bucket
 
-For more information: https://github.com/provabl/ark`,
+For more information: https://github.com/provabl/qualify`,
 	Version: fmt.Sprintf("%s (commit: %s, built: %s)", Version, CommitSHA, BuildDate),
 }
 

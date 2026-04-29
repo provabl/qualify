@@ -1,4 +1,4 @@
-module github.com/provabl/ark
+module github.com/provabl/qualify
 
 go 1.24.0
 

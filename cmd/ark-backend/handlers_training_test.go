@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/provabl/ark/internal/training"
+	"github.com/provabl/qualify/internal/training"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

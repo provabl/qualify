@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/provabl/ark/internal/training"
+	"github.com/provabl/qualify/internal/training"
 )
 
 // handleGetUserProfile retrieves a user profile

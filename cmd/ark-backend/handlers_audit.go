@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/provabl/ark/internal/audit"
+	"github.com/provabl/qualify/internal/audit"
 )
 
 // handleLogAudit receives and stores audit log entries from the agent

@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/provabl/ark/cmd/ark/cmd"
+	"github.com/provabl/qualify/cmd/ark/cmd"
 )
 
 var (

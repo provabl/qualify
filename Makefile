@@ -7,9 +7,9 @@ BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -s -w -X main.version=$(VERSION) -X main.commitSHA=$(COMMIT_SHA) -X main.buildDate=$(BUILD_DATE)
 
 # Binary names
-AGENT_BIN := bin/ark-agent
-BACKEND_BIN := bin/ark-backend
-CLI_BIN := bin/ark
+AGENT_BIN := bin/qualify-agent
+BACKEND_BIN := bin/qualify-backend
+CLI_BIN := bin/qualify
 
 # Go settings
 GOFLAGS := -trimpath
@@ -17,7 +17,7 @@ TESTFLAGS := -race -coverprofile=coverage.out -covermode=atomic
 
 ## help: Show this help message
 help:
-	@echo "Ark - AWS Research Kit"
+	@echo "qualify - Researcher training"
 	@echo ""
 	@echo "Usage: make [target]"
 	@echo ""
