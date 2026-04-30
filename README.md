@@ -188,6 +188,16 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development guide.
 
 ---
 
+## Open-core model
+
+The CLI, backend API, training engine, IAM tag integration, and basic web dashboard are **open source** (Apache 2.0, always free).
+
+The commercial tier (**qualify Cloud**) adds expert-validated compliance content packs, advanced web dashboard, SSO/LDAP integration, multi-institution management, and compliance report generation.
+
+See [COMMERCIAL.md](COMMERCIAL.md) for the full boundary.
+
+---
+
 ## License
 
 Apache 2.0. Copyright 2026 Scott Friedman.
