@@ -5,7 +5,7 @@ test.describe('Training Flow', () => {
     await page.goto('/training')
 
     // Should show Training Modules heading
-    await expect(page.locator('text=Training Modules')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('text=Training Modules').first()).toBeVisible({ timeout: 5000 })
 
     // Should show at least one module or empty state
     const hasModules = await page.locator('[data-testid="training-module"], .module-card, text=/S3 Basics|IAM Basics/i').isVisible({ timeout: 3000 })
