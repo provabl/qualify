@@ -251,12 +251,14 @@ attest:admin-level               = "none" | "env" | "sre"</code></pre>
                             <div class="code-block">
                                 <pre><code><span class="accent-cmd">qualify</span> train start cui-fundamentals
 
-<span class="out">── Section 1: What is Controlled Unclassified Information? ──────────</span>
+<span class="out">──────────────────────────────────────────────────────────────────────</span>
+<span class="out">  Controlled Unclassified Information (CUI)  —  Section 1 of 3: What is CUI?</span>
+<span class="out">──────────────────────────────────────────────────────────────────────</span>
 <span class="out"></span>
 <span class="out">CUI is information the Government creates or possesses that requires</span>
 <span class="out">safeguarding consistent with applicable laws and regulations...</span>
 <span class="out"></span>
-<span class="out">[Press Enter to continue, or 'q' to pause and resume later]</span></code></pre>
+<span class="out">  [Press Enter to continue — 'q' to save and quit]</span></code></pre>
                             </div>
                         </div>
                     </div>
@@ -266,19 +268,21 @@ attest:admin-level               = "none" | "env" | "sre"</code></pre>
                         <div class="flow-body">
                             <h3>Complete the quiz</h3>
                             <div class="code-block">
-                                <pre><code><span class="out">── Quiz ─────────────────────────────────────────────────────────────</span>
+                                <pre><code><span class="out">──────────────────────────────────────────────────────────────────────</span>
+<span class="out">  Quiz: 5 questions, 80% to pass</span>
+<span class="out">──────────────────────────────────────────────────────────────────────</span>
 <span class="out"></span>
-<span class="out">Q3: A contract deliverable with a DoD clause contains export-</span>
-<span class="out">controlled technical data. How should it be handled?</span>
+<span class="out">  Q3: A contract deliverable with a DoD clause contains export-</span>
+<span class="out">  controlled technical data. How should it be handled?</span>
 <span class="out"></span>
-<span class="out">  a) Share via email as a PDF attachment</span>
-<span class="out">  b) Store in CUI-designated S3 environment with access logging</span>
-<span class="out">  c) Post to a public GitHub repository (technical reports are OK)</span>
-<span class="out">  d) Save to personal OneDrive for convenience</span>
+<span class="out">    1) Share via email as a PDF attachment</span>
+<span class="out">    2) Store in CUI-designated S3 environment with access logging</span>
+<span class="out">    3) Post to a public GitHub repository (technical reports are OK)</span>
+<span class="out">    4) Save to personal OneDrive for convenience</span>
 <span class="out"></span>
-<span class="out">Your answer: </span>b
+<span class="out">  Answer [1-4]: </span>2
 
-<span class="out">✓ Correct. CUI must be stored in an authorized enclave.</span></code></pre>
+<span class="out">  ✓ Correct. CUI must be stored in an authorized enclave.</span></code></pre>
                             </div>
                         </div>
                     </div>
@@ -288,14 +292,14 @@ attest:admin-level               = "none" | "env" | "sre"</code></pre>
                         <div class="flow-body">
                             <h3>IAM tags written automatically</h3>
                             <div class="code-block">
-                                <pre><code><span class="out">✓ Module cui-fundamentals passed  (score: 9/10 — 90%)</span>
+                                <pre><code><span class="out">  Score: 4/5 (80%) — PASSED ✓</span>
 <span class="out"></span>
-<span class="out">IAM role tags written:</span>
-<span class="out">  attest:cui-training        = true</span>
-<span class="out">  attest:cui-training-expiry = 2027-05-01T00:00:00Z</span>
-<span class="out">  attest:lab-id              = chen-quantum-lab</span>
+<span class="out">  IAM tags written:</span>
+<span class="out">    attest:cui-training        = true</span>
+<span class="out">    attest:cui-training-expiry = &lt;1 year from now&gt;</span>
 <span class="out"></span>
-<span class="out">Cedar PDP re-evaluates on next request — CUI access now permitted.</span>
+<span class="out">  Cedar PDP will grant CUI data access on the next request.</span>
+<span class="out">  Next up: qualify train start security-awareness</span>
 
 <span class="accent-cmd">qualify</span> train status
 <span class="out">  cui-fundamentals        ✓ current   expires 2027-05-01</span>
