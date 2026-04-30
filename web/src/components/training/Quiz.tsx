@@ -1,195 +1,140 @@
-import { useState, useMemo, useCallback } from 'react'
-import SpaceBetween from '@cloudscape-design/components/space-between'
-import Box from '@cloudscape-design/components/box'
-import Button from '@cloudscape-design/components/button'
-import RadioGroup from '@cloudscape-design/components/radio-group'
-import Alert from '@cloudscape-design/components/alert'
-import Container from '@cloudscape-design/components/container'
-import Header from '@cloudscape-design/components/header'
+import { useState } from 'react'
+import { CheckCircle2, XCircle } from 'lucide-react'
 import { agentService } from '@/services/agent'
-import type { QuizQuestion, QuizAnswer, QuizResponse } from '@/types/api'
+import { cn } from '@/lib/utils'
+import type { QuizQuestion, QuizResponse } from '@/types/api'
 
-interface QuizProps {
+interface Props {
   moduleId: string
   userId: string
   questions: QuizQuestion[]
+  passingScore?: number
   onComplete: (score: number, passed: boolean) => void
 }
 
-export default function Quiz({ moduleId, userId, questions, onComplete }: QuizProps) {
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [quizResult, setQuizResult] = useState<QuizResponse | null>(null)
+export default function Quiz({ moduleId, userId, questions, passingScore = 70, onComplete }: Props) {
+  const [answers, setAnswers] = useState<Record<number, number>>({})
+  const [submitted, setSubmitted] = useState(false)
+  const [result, setResult] = useState<QuizResponse | null>(null)
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const allQuestionsAnswered = useMemo(() => {
-    return questions.every(q => selectedAnswers[q.id] !== undefined)
-  }, [questions, selectedAnswers])
+  const allAnswered = Object.keys(answers).length === questions.length
 
-  const handleAnswerChange = useCallback((questionId: string, value: string) => {
-    setSelectedAnswers(prev => ({
-      ...prev,
-      [questionId]: parseInt(value, 10),
-    }))
-  }, [])
-
-  const handleSubmit = useCallback(async () => {
-    if (!allQuestionsAnswered) return
-
-    setIsSubmitting(true)
+  async function submit() {
+    if (!allAnswered) return
+    setSubmitting(true)
     setError(null)
-
     try {
-      const answers: QuizAnswer[] = Object.entries(selectedAnswers).map(([questionId, answer]) => ({
-        question_id: questionId,
-        selected_answer: answer,
+      const quizAnswers = questions.map((q, i) => ({
+        question_id: q.id,
+        selected_answer: answers[i] ?? 0,
       }))
-
-      const result = await agentService.submitQuizAnswers(moduleId, userId, answers)
-      setQuizResult(result)
-
-      const passed = result.score >= 70
-      onComplete(result.score, passed)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit quiz')
-      console.error('Failed to submit quiz:', err)
+      const response = await agentService.submitQuizAnswers(moduleId, userId, quizAnswers)
+      setResult(response)
+      setSubmitted(true)
+      const passed = response.score >= passingScore
+      onComplete(response.score, passed)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to submit quiz')
     } finally {
-      setIsSubmitting(false)
+      setSubmitting(false)
     }
-  }, [allQuestionsAnswered, selectedAnswers, moduleId, userId, onComplete])
+  }
 
-  const handleRetry = useCallback(() => {
-    setSelectedAnswers({})
-    setQuizResult(null)
-    setError(null)
-  }, [])
-
-  if (quizResult) {
-    const passed = quizResult.score >= 70
-
+  if (submitted && result) {
+    const passed = result.score >= passingScore
     return (
-      <Container>
-        <SpaceBetween size="l">
-          <Alert
-            type={passed ? 'success' : 'warning'}
-            header={passed ? 'Quiz Passed!' : 'Quiz Not Passed'}
-          >
-            {passed
-              ? `Congratulations! You scored ${quizResult.score}% (${quizResult.correct_answers}/${quizResult.total_questions} correct).`
-              : `You scored ${quizResult.score}% (${quizResult.correct_answers}/${quizResult.total_questions} correct). You need 70% to pass.`}
-          </Alert>
-
-          <SpaceBetween size="m">
-            <Header variant="h3">Quiz Results</Header>
-            {quizResult.results.map((result, index) => {
-              const question = questions.find(q => q.id === result.question_id)
-              if (!question) return null
-
-              return (
-                <Container key={result.question_id}>
-                  <SpaceBetween size="s">
-                    <Box variant="strong">
-                      Question {index + 1}: {question.question}
-                    </Box>
-
-                    <Box padding={{ left: 'm' }}>
-                      {question.options.map((option, optIndex) => {
-                        const isSelected = result.selected_answer === optIndex
-                        const isCorrect = result.correct_answer === optIndex
-                        let style = {}
-                        let indicator = ''
-
-                        if (isCorrect) {
-                          style = { color: 'green', fontWeight: 'bold' }
-                          indicator = ' ✓ Correct'
-                        } else if (isSelected && !isCorrect) {
-                          style = { color: 'red', fontWeight: 'bold' }
-                          indicator = ' ✗ Your answer'
-                        }
-
-                        return (
-                          <Box key={optIndex} padding={{ bottom: 'xs' }}>
-                            <span style={style}>
-                              {option}
-                              {indicator}
-                            </span>
-                          </Box>
-                        )
-                      })}
-                    </Box>
-
-                    {result.explanation && (
-                      <Box fontSize="body-s" color="text-body-secondary" padding={{ left: 'm' }}>
-                        <em>{result.explanation}</em>
-                      </Box>
-                    )}
-                  </SpaceBetween>
-                </Container>
-              )
-            })}
-          </SpaceBetween>
-
-          {!passed && (
-            <Button onClick={handleRetry}>Retry Quiz</Button>
-          )}
-        </SpaceBetween>
-      </Container>
+      <div className="space-y-4">
+        <div className={cn('flex items-center gap-3 p-4 rounded-lg border', passed ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200')}>
+          {passed
+            ? <CheckCircle2 className="h-5 w-5 text-green-600 flex-none" />
+            : <XCircle className="h-5 w-5 text-red-600 flex-none" />}
+          <div>
+            <p className={cn('font-medium', passed ? 'text-green-800' : 'text-red-800')}>
+              {passed ? 'Quiz Passed!' : 'Quiz Not Passed'}
+            </p>
+            <p className={cn('text-sm mt-0.5', passed ? 'text-green-600' : 'text-red-600')}>
+              You scored {result.score}%
+              {!passed && ` — You need ${passingScore}% to pass.`}
+            </p>
+          </div>
+        </div>
+        {!passed && (
+          <button onClick={() => { setSubmitted(false); setAnswers({}) }} className="text-sm text-brand-600 hover:text-brand-700 font-medium">
+            Retry Quiz
+          </button>
+        )}
+        <div className="space-y-3 mt-2">
+          {result.results?.map((r, qi) => {
+            const q = questions.find(q => q.id === r.question_id) ?? questions[qi]
+            if (!q) return null
+            return (
+              <div key={r.question_id} className={cn('p-3 rounded-lg border text-sm', r.correct ? 'border-green-100 bg-green-50' : 'border-red-100 bg-red-50')}>
+                <p className="font-medium text-slate-800 mb-2">Question {qi + 1}: {q.question}</p>
+                {q.options.map((opt, oi) => (
+                  <div key={oi} className={cn('px-2 py-1 rounded',
+                    oi === r.correct_answer && 'text-green-700 font-medium',
+                    oi === r.selected_answer && !r.correct && 'text-red-700 line-through',
+                  )}>
+                    {oi === r.correct_answer ? '✓' : oi === r.selected_answer ? '✗' : ' '} {opt}
+                  </div>
+                ))}
+                {r.explanation && <p className="mt-2 text-xs text-slate-500 italic">{r.explanation}</p>}
+              </div>
+            )
+          })}
+        </div>
+      </div>
     )
   }
 
   return (
-    <Container>
-      <SpaceBetween size="l">
-        <Alert type="info">
-          Complete this quiz to demonstrate your understanding. You need 70% to pass.
-        </Alert>
-
-        {error && (
-          <Alert
-            type="error"
-            dismissible
-            onDismiss={() => setError(null)}
-          >
-            {error}
-          </Alert>
-        )}
-
-        <SpaceBetween size="m">
-          {questions.map((question, index) => (
-            <Container key={question.id}>
-              <SpaceBetween size="s">
-                <Box variant="strong">
-                  Question {index + 1}: {question.question}
-                </Box>
-
-                <RadioGroup
-                  value={selectedAnswers[question.id]?.toString() ?? ''}
-                  onChange={({ detail }) => handleAnswerChange(question.id, detail.value)}
-                  items={question.options.map((option, optIndex) => ({
-                    value: optIndex.toString(),
-                    label: option,
-                  }))}
+    <div className="space-y-5">
+      <p className="text-sm text-slate-500">{questions.length} questions — {passingScore}% to pass</p>
+      {questions.map((q, qi) => (
+        <div key={q.id} className="space-y-2">
+          <p className="text-sm font-medium text-slate-900">Question {qi + 1}: {q.question}</p>
+          <div className="space-y-1.5" role="radiogroup">
+            {q.options.map((opt, oi) => (
+              <label
+                key={oi}
+                className={cn(
+                  'flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors text-sm',
+                  answers[qi] === oi
+                    ? 'border-brand-300 bg-brand-50 text-brand-900'
+                    : 'border-slate-200 hover:border-slate-300 text-slate-700'
+                )}
+              >
+                <input
+                  type="radio"
+                  name={`q-${qi}`}
+                  value={oi}
+                  aria-label={opt}
+                  checked={answers[qi] === oi}
+                  onChange={() => setAnswers(prev => ({ ...prev, [qi]: oi }))}
+                  className="accent-brand-600"
                 />
-              </SpaceBetween>
-            </Container>
-          ))}
-        </SpaceBetween>
+                {opt}
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
 
-        <Button
-          variant="primary"
-          onClick={handleSubmit}
-          loading={isSubmitting}
-          disabled={!allQuestionsAnswered}
-        >
-          Submit Quiz
-        </Button>
+      {!allAnswered && (
+        <p className="text-sm text-slate-400">Please answer all questions before submitting</p>
+      )}
 
-        {!allQuestionsAnswered && (
-          <Box fontSize="body-s" color="text-status-warning">
-            Please answer all questions before submitting
-          </Box>
-        )}
-      </SpaceBetween>
-    </Container>
+      {error && <p className="text-sm text-red-500">{error}</p>}
+
+      <button
+        onClick={submit}
+        disabled={submitting || !allAnswered}
+        className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-md hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      >
+        {submitting ? 'Submitting…' : 'Submit Quiz'}
+      </button>
+    </div>
   )
 }

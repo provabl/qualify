@@ -1,53 +1,25 @@
-import { useEffect } from 'react'
 import { useAgent } from '@/contexts/AgentContext'
-import StatusIndicator from '@cloudscape-design/components/status-indicator'
-import Box from '@cloudscape-design/components/box'
-
-function getStatusType(status: string) {
-  switch (status) {
-    case 'connected':
-      return 'success'
-    case 'checking':
-      return 'loading'
-    case 'error':
-    case 'disconnected':
-      return 'error'
-    default:
-      return 'stopped'
-  }
-}
-
-function getStatusText(status: string, error: string | null) {
-  switch (status) {
-    case 'connected':
-      return 'Agent Connected'
-    case 'checking':
-      return 'Checking Agent...'
-    case 'error':
-      return `Agent Error: ${error}`
-    case 'disconnected':
-      return 'Agent Disconnected'
-    default:
-      return 'Unknown Status'
-  }
-}
+import { cn } from '@/lib/utils'
 
 export default function AgentStatus() {
   const agent = useAgent()
 
-  useEffect(() => {
-    // Start periodic agent connectivity checks (every 30 seconds)
-    agent.startPeriodicCheck(30000)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const colors: Record<string, string> = {
+    connected:    'bg-green-500',
+    disconnected: 'bg-slate-400',
+    checking:     'bg-amber-400 animate-pulse',
+  }
+
+  const labels: Record<string, string> = {
+    connected:    'Agent connected',
+    disconnected: 'Agent offline',
+    checking:     'Checking…',
+  }
 
   return (
-    <Box padding={{ vertical: 'xs', horizontal: 's' }}>
-      <StatusIndicator type={getStatusType(agent.status)}>
-        {getStatusText(agent.status, agent.error)}
-        {agent.version && agent.isConnected && (
-          <span> (v{agent.version})</span>
-        )}
-      </StatusIndicator>
-    </Box>
+    <div className="flex items-center gap-2 text-xs text-slate-500">
+      <span className={cn('inline-block h-2 w-2 rounded-full flex-none', colors[agent.status] ?? 'bg-slate-400')} />
+      <span>{labels[agent.status] ?? 'Agent unknown'}</span>
+    </div>
   )
 }

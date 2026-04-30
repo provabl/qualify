@@ -1,18 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Modal from '@cloudscape-design/components/modal'
-import Box from '@cloudscape-design/components/box'
-import SpaceBetween from '@cloudscape-design/components/space-between'
-import Button from '@cloudscape-design/components/button'
-import Container from '@cloudscape-design/components/container'
-import ColumnLayout from '@cloudscape-design/components/column-layout'
-import Badge from '@cloudscape-design/components/badge'
-import Icon from '@cloudscape-design/components/icon'
-import Alert from '@cloudscape-design/components/alert'
+import { X, BookOpen, ShieldCheck, Zap, ChevronRight } from 'lucide-react'
 import { agentService } from '@/services/agent'
+import { cn } from '@/lib/utils'
 import type { TrainingModule } from '@/types/api'
 
-interface OnboardingWizardProps {
+interface Props {
   visible: boolean
   userId: string
   trainingModules: TrainingModule[]
@@ -20,233 +13,124 @@ interface OnboardingWizardProps {
   onComplete: () => void
 }
 
-export default function OnboardingWizard({
-  visible,
-  userId,
-  trainingModules,
-  onDismiss,
-  onComplete
-}: OnboardingWizardProps) {
+const steps = [
+  {
+    icon: BookOpen,
+    title: 'Complete Required Training',
+    desc: 'Finish compliance training modules to unlock access to sensitive data environments.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Get Your Access Tags',
+    desc: 'qualify writes IAM tags to your role on completion. attest evaluates these in real time.',
+  },
+  {
+    icon: Zap,
+    title: 'Access Unlocked',
+    desc: "Once your tags are set, you'll have access to the AWS resources your institution has approved.",
+  },
+]
+
+export default function OnboardingWizard({ visible, userId, trainingModules, onDismiss, onComplete }: Props) {
   const navigate = useNavigate()
-  const [currentStep, setCurrentStep] = useState(0)
-  const [isCompleting, setIsCompleting] = useState(false)
+  const [step, setStep] = useState(0)
+  const [completing, setCompleting] = useState(false)
 
-  const steps = [
-    {
-      title: 'Welcome to ARK',
-      content: (
-        <SpaceBetween size="m">
-          <Box variant="h2" textAlign="center">
-            qualify Training
-          </Box>
-          <Box variant="p" textAlign="center" fontSize="heading-m" padding={{ bottom: 'm' }}>
-            Safe, Controlled AWS Access for Research Environments
-          </Box>
+  if (!visible) return null
 
-          <Container>
-            <SpaceBetween size="s">
-              <Box variant="h3">Security-First Design</Box>
-              <Box variant="p">
-                ARK provides a training-gated approach to AWS operations. Before you can perform
-                actions like creating S3 buckets or launching EC2 instances, you'll complete
-                relevant training modules.
-              </Box>
-            </SpaceBetween>
-          </Container>
-
-          <ColumnLayout columns={3}>
-            <div>
-              <SpaceBetween size="xs">
-                <Icon name="status-positive" variant="success" size="large" />
-                <Box variant="h4">Learn First</Box>
-                <Box fontSize="body-s" color="text-body-secondary">
-                  Complete interactive training modules on AWS services
-                </Box>
-              </SpaceBetween>
-            </div>
-            <div>
-              <SpaceBetween size="xs">
-                <Icon name="unlocked" variant="success" size="large" />
-                <Box variant="h4">Unlock Operations</Box>
-                <Box fontSize="body-s" color="text-body-secondary">
-                  Pass quizzes to prove understanding and unlock capabilities
-                </Box>
-              </SpaceBetween>
-            </div>
-            <div>
-              <SpaceBetween size="xs">
-                <Icon name="search" variant="success" size="large" />
-                <Box variant="h4">Full Audit Trail</Box>
-                <Box fontSize="body-s" color="text-body-secondary">
-                  All actions are logged for compliance and accountability
-                </Box>
-              </SpaceBetween>
-            </div>
-          </ColumnLayout>
-        </SpaceBetween>
-      )
-    },
-    {
-      title: 'Available Training',
-      content: (
-        <SpaceBetween size="m">
-          <Box variant="p">
-            ARK includes {trainingModules.length} training modules covering essential AWS services.
-            Each module includes educational content and a quiz to test your understanding.
-          </Box>
-
-          <Alert type="info">
-            You need a score of 70% or higher to pass each quiz and unlock the associated AWS operations.
-          </Alert>
-
-          <SpaceBetween size="s">
-            {trainingModules.map((module) => (
-              <Container key={module.id}>
-                <ColumnLayout columns={2} variant="text-grid">
-                  <SpaceBetween size="xxs">
-                    <Box variant="h4">{module.title}</Box>
-                    <SpaceBetween direction="horizontal" size="xs">
-                      {module.category && <Badge color="blue">{module.category}</Badge>}
-                      {module.difficulty && <Badge>{module.difficulty}</Badge>}
-                    </SpaceBetween>
-                    {module.description && (
-                      <Box fontSize="body-s" color="text-body-secondary">
-                        {module.description}
-                      </Box>
-                    )}
-                  </SpaceBetween>
-                  <Box textAlign="right">
-                    <Box fontSize="body-s" color="text-body-secondary">
-                      <Icon name="status-in-progress" /> {module.estimated_minutes} minutes
-                    </Box>
-                  </Box>
-                </ColumnLayout>
-              </Container>
-            ))}
-          </SpaceBetween>
-        </SpaceBetween>
-      )
-    },
-    {
-      title: 'Quick Start Guide',
-      content: (
-        <SpaceBetween size="m">
-          <Box variant="h3">Getting Started with ARK</Box>
-
-          <Container>
-            <SpaceBetween size="s">
-              <Box variant="h4">
-                <Icon name="angle-right" /> Step 1: Complete Training
-              </Box>
-              <Box variant="p" padding={{ left: 'l' }}>
-                Navigate to the Training section and select a module. Read through the content
-                and complete the quiz at the end.
-              </Box>
-            </SpaceBetween>
-          </Container>
-
-          <Container>
-            <SpaceBetween size="s">
-              <Box variant="h4">
-                <Icon name="angle-right" /> Step 2: Monitor Your Progress
-              </Box>
-              <Box variant="p" padding={{ left: 'l' }}>
-                Check the Dashboard to see your training completion status, recent activity,
-                and which AWS operations you've unlocked.
-              </Box>
-            </SpaceBetween>
-          </Container>
-
-          <Container>
-            <SpaceBetween size="s">
-              <Box variant="h4">
-                <Icon name="angle-right" /> Step 3: Use AWS Services
-              </Box>
-              <Box variant="p" padding={{ left: 'l' }}>
-                Once you've completed the required training, use the service pages (like S3)
-                to perform operations. If training is incomplete, you'll see a training gate
-                with links to the relevant modules.
-              </Box>
-            </SpaceBetween>
-          </Container>
-
-          <Alert type="success">
-            <Box variant="p">
-              <strong>Ready to begin?</strong> Click "Get Started" to view available training modules
-              and start your first course.
-            </Box>
-          </Alert>
-        </SpaceBetween>
-      )
-    }
-  ]
-
-  const currentStepData = steps[currentStep]
-  const isFirstStep = currentStep === 0
-  const isLastStep = currentStep === steps.length - 1
-
-  async function handleComplete() {
-    setIsCompleting(true)
+  async function finish() {
+    setCompleting(true)
     try {
-      await agentService.updateUserProfile(userId, {
-        preferences: {
-          has_completed_onboarding: true,
-          show_training_reminders: true
-        }
-      } as any)
-      onComplete()
-      navigate('/training')
-    } catch (error) {
-      console.error('Failed to update onboarding status:', error)
-      onComplete()
-      navigate('/training')
+      await agentService.updateUserProfile(userId, { preferences: { has_completed_onboarding: true } } as any)
+    } catch {
+      // non-fatal
     } finally {
-      setIsCompleting(false)
-    }
-  }
-
-  function handleNext() {
-    if (isLastStep) {
-      handleComplete()
-    } else {
-      setCurrentStep(prev => prev + 1)
-    }
-  }
-
-  function handlePrevious() {
-    if (!isFirstStep) {
-      setCurrentStep(prev => prev - 1)
+      setCompleting(false)
+      onComplete()
     }
   }
 
   return (
-    <Modal
-      visible={visible}
-      onDismiss={onDismiss}
-      size="large"
-      header={currentStepData.title}
-      footer={
-        <Box float="right">
-          <SpaceBetween direction="horizontal" size="xs">
-            {!isFirstStep && (
-              <Button onClick={handlePrevious}>
-                Previous
-              </Button>
-            )}
-            <Button variant="primary" onClick={handleNext} loading={isCompleting}>
-              {isLastStep ? 'Get Started' : 'Next'}
-            </Button>
-          </SpaceBetween>
-        </Box>
-      }
-    >
-      <SpaceBetween size="l">
-        {currentStepData.content}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="relative w-full max-w-lg mx-4 bg-white rounded-xl shadow-xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+          <h2 className="text-base font-semibold text-slate-900">Welcome to qualify</h2>
+          <button onClick={onDismiss} className="text-slate-400 hover:text-slate-600 transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-        <Box textAlign="center" fontSize="body-s" color="text-body-secondary">
-          Step {currentStep + 1} of {steps.length}
-        </Box>
-      </SpaceBetween>
-    </Modal>
+        {/* Step indicator */}
+        <div className="flex gap-1.5 px-6 pt-5">
+          {steps.map((_, i) => (
+            <div key={i} className={cn('h-1 flex-1 rounded-full transition-colors', i <= step ? 'bg-brand-500' : 'bg-slate-200')} />
+          ))}
+        </div>
+
+        {/* Step content */}
+        <div className="px-6 py-5">
+          {step < steps.length ? (
+            <div className="flex gap-4">
+              {(() => {
+                const { icon: Icon, title, desc } = steps[step]
+                return (
+                  <>
+                    <div className="h-10 w-10 rounded-lg bg-brand-50 flex items-center justify-center flex-none">
+                      <Icon className="h-5 w-5 text-brand-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-900">{title}</p>
+                      <p className="text-sm text-slate-500 mt-1 leading-relaxed">{desc}</p>
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+          ) : (
+            <div>
+              <p className="font-medium text-slate-900 mb-3">Your required training modules</p>
+              {trainingModules.length === 0 ? (
+                <p className="text-sm text-slate-400">No modules assigned yet — check back after your SRE admin configures your environment.</p>
+              ) : (
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {trainingModules.slice(0, 6).map(m => (
+                    <div key={m.id ?? m.name} className="flex items-center justify-between p-2.5 rounded-lg border border-slate-200 text-sm">
+                      <span className="text-slate-700">{m.title}</span>
+                      {m.estimated_minutes && <span className="text-xs text-slate-400">{m.estimated_minutes} min</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50">
+          <button onClick={onDismiss} className="text-sm text-slate-500 hover:text-slate-700">
+            Skip for now
+          </button>
+          {step < steps.length ? (
+            <button
+              onClick={() => setStep(s => s + 1)}
+              className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md transition-colors"
+            >
+              Next <ChevronRight className="h-4 w-4" />
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={() => { finish(); navigate('/training') }}
+                disabled={completing}
+                className="px-4 py-1.5 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md disabled:opacity-40 transition-colors"
+              >
+                Start Training
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }

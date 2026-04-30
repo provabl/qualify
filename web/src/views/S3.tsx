@@ -1,346 +1,164 @@
-import { useState, useMemo, useEffect } from 'react'
-import Container from '@cloudscape-design/components/container'
-import Header from '@cloudscape-design/components/header'
-import SpaceBetween from '@cloudscape-design/components/space-between'
-import Box from '@cloudscape-design/components/box'
-import Button from '@cloudscape-design/components/button'
-import Form from '@cloudscape-design/components/form'
-import FormField from '@cloudscape-design/components/form-field'
-import Input from '@cloudscape-design/components/input'
-import Select, { SelectProps } from '@cloudscape-design/components/select'
-import Toggle from '@cloudscape-design/components/toggle'
-import Flashbar from '@cloudscape-design/components/flashbar'
-import { agentService } from '@/services/agent'
-import type { CreateBucketRequest, S3Bucket, PolicyDecision, TrainingModule } from '@/types/api'
+import { useState, useEffect } from 'react'
+import { FolderOpen, Plus, AlertCircle } from 'lucide-react'
 import TrainingGate from '@/components/training/TrainingGate'
+import { agentService } from '@/services/agent'
+import { cn } from '@/lib/utils'
+import type { S3Bucket, TrainingModule, PolicyDecision } from '@/types/api'
 
-// Region options
-const regionOptions = [
-  { label: 'US East (N. Virginia)', value: 'us-east-1' },
-  { label: 'US West (Oregon)', value: 'us-west-2' },
-  { label: 'EU (Ireland)', value: 'eu-west-1' },
-  { label: 'Asia Pacific (Singapore)', value: 'ap-southeast-1' }
-]
-
-// Encryption options
-const encryptionOptions = [
-  { label: 'AES256', value: 'AES256' },
-  { label: 'AWS KMS', value: 'aws:kms' }
-]
-
-// Validation function
-function validateBucketName(name: string): string | null {
-  if (name.length < 3 || name.length > 63) {
-    return 'Bucket name must be between 3 and 63 characters'
-  }
-
-  if (name[0] === '-' || name[name.length - 1] === '-') {
-    return 'Bucket name cannot start or end with a hyphen'
-  }
-
-  if (name[0] === '.' || name[name.length - 1] === '.') {
-    return 'Bucket name cannot start or end with a period'
-  }
-
-  for (let i = 0; i < name.length; i++) {
-    const c = name[i]
-    if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c === '-' || c === '.')) {
-      return 'Bucket name can only contain lowercase letters, numbers, hyphens, and periods'
-    }
-
-    if (c === '.' && i > 0 && name[i - 1] === '.') {
-      return 'Bucket name cannot contain consecutive periods'
-    }
-  }
-
-  // Check if it looks like an IP address
-  const parts = name.split('.')
-  if (parts.length === 4) {
-    let allNumeric = true
-    for (const part of parts) {
-      if (part.length === 0 || part.length > 3) {
-        allNumeric = false
-        break
-      }
-      for (const c of part) {
-        if (c < '0' || c > '9') {
-          allNumeric = false
-          break
-        }
-      }
-    }
-    if (allNumeric) {
-      return 'Bucket name cannot be formatted as an IP address'
-    }
-  }
-
-  return null
+function isPolicyDecision(v: unknown): v is PolicyDecision {
+  return typeof v === 'object' && v !== null && 'action' in v
 }
 
 export default function S3() {
-  // Form state
+  const [buckets, setBuckets] = useState<S3Bucket[]>([])
+  const [error] = useState<string | null>(null)
+  const [requiredModules, setRequiredModules] = useState<TrainingModule[]>([])
+  const [showCreate, setShowCreate] = useState(false)
   const [bucketName, setBucketName] = useState('')
-  const [region, setRegion] = useState<SelectProps.Option>({ label: 'US East (N. Virginia)', value: 'us-east-1' })
-  const [encryptionType, setEncryptionType] = useState<SelectProps.Option>({ label: 'AES256', value: 'AES256' })
-  const [kmsKeyId, setKmsKeyId] = useState('')
-  const [versioningEnabled, setVersioningEnabled] = useState(false)
-  const [selectedProfile, setSelectedProfile] = useState<SelectProps.Option>({ label: 'default', value: 'default' })
+  const [region, setRegion] = useState('us-east-1')
+  const [creating, setCreating] = useState(false)
+  const [createMsg, setCreateMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  // UI state
-  const [isCreating, setIsCreating] = useState(false)
-  const [showForm, setShowForm] = useState(false)
-  const [profiles, setProfiles] = useState<Array<{ label: string; value: string }>>([])
-  const [flashbarItems, setFlashbarItems] = useState<any[]>([])
-  const [trainingRequired, setTrainingRequired] = useState<TrainingModule[] | null>(null)
+  // S3 list is agent-provided; skip if agent not running
+  useEffect(() => { checkTrainingGate() }, [])
 
-  // Computed properties
-  const bucketNameError = useMemo(() => {
-    if (!bucketName) return null
-    return validateBucketName(bucketName)
-  }, [bucketName])
-
-  const isFormValid = useMemo(() => {
-    if (!bucketName) return false
-    if (bucketNameError) return false
-    if (encryptionType.value === 'aws:kms' && !kmsKeyId) return false
-    return true
-  }, [bucketName, bucketNameError, encryptionType.value, kmsKeyId])
-
-  // Load credential profiles
-  useEffect(() => {
-    loadProfiles()
-  }, [])
-
-  async function loadProfiles() {
+  async function checkTrainingGate() {
+    // A training gate check is triggered by attempting a minimal operation.
+    // If training is required, agentService returns a PolicyDecision.
     try {
-      const profileList = await agentService.listCredentials()
-      const mappedProfiles = profileList.map(p => ({ label: p, value: p }))
-      setProfiles(mappedProfiles.length > 0 ? mappedProfiles : [{ label: 'default', value: 'default' }])
-    } catch (error) {
-      console.error('Failed to load profiles:', error)
-      setProfiles([{ label: 'default', value: 'default' }])
+      const result = await agentService.createBucket({
+        bucket_name: '__gate_check__',
+        region: 'us-east-1',
+        encryption: { type: 'AES256' },
+        versioning_enabled: false,
+        profile: 'default',
+      })
+      if (isPolicyDecision(result) && result.required_modules) {
+        setRequiredModules(result.required_modules as TrainingModule[])
+      }
+    } catch {
+      // agent not running — show form, let backend handle
     }
   }
 
-  // Handle bucket creation
-  async function handleCreateBucket() {
-    if (!isFormValid) return
-
-    setIsCreating(true)
-    setTrainingRequired(null)
-    setFlashbarItems([])
-
+  async function createBucket() {
+    if (!bucketName.trim()) return
+    setCreating(true)
+    setCreateMsg(null)
     try {
-      const request: CreateBucketRequest = {
-        bucket_name: bucketName,
-        region: region.value ?? 'us-east-1',
-        encryption: {
-          type: (encryptionType.value as 'AES256' | 'aws:kms') ?? 'AES256',
-          kms_key_id: encryptionType.value === 'aws:kms' ? kmsKeyId : undefined
-        },
-        versioning_enabled: versioningEnabled,
-        profile: selectedProfile.value ?? 'default'
-      }
-
-      const response = await agentService.createBucket(request)
-
-      // Check if response is PolicyDecision (training block)
-      if ('action' in response && response.action === 'block') {
-        handleTrainingBlock(response as PolicyDecision)
+      const result = await agentService.createBucket({
+        bucket_name: bucketName.trim(),
+        region,
+        encryption: { type: 'AES256' },
+        versioning_enabled: false,
+        profile: 'default',
+      })
+      if (isPolicyDecision(result)) {
+        setCreateMsg({ type: 'error', text: result.reason ?? 'Operation blocked by training gate.' })
+        if (result.required_modules) setRequiredModules(result.required_modules as TrainingModule[])
       } else {
-        handleSuccess(response as S3Bucket)
+        setCreateMsg({ type: 'success', text: `Bucket "${bucketName}" created successfully.` })
+        setBucketName('')
+        setShowCreate(false)
+        setBuckets(prev => [...prev, result as S3Bucket])
       }
-    } catch (error) {
-      handleError(error as Error)
+    } catch (e) {
+      setCreateMsg({ type: 'error', text: e instanceof Error ? e.message : 'Failed to create bucket' })
     } finally {
-      setIsCreating(false)
+      setCreating(false)
     }
   }
 
-  // Handle successful bucket creation
-  function handleSuccess(bucket: S3Bucket) {
-    const createdDate = bucket.created_at ? new Date(bucket.created_at).toLocaleString() : ''
-
-    setFlashbarItems([{
-      type: 'success',
-      dismissible: true,
-      dismissLabel: 'Dismiss',
-      content: `Bucket Created Successfully: ${bucket.bucket_name} in ${bucket.region}` +
-               (bucket.location ? ` (${bucket.location})` : '') +
-               (createdDate ? ` at ${createdDate}` : ''),
-      onDismiss: () => setFlashbarItems([])
-    }])
-
-    // Reset form
-    setShowForm(false)
-    setBucketName('')
-    setKmsKeyId('')
-    setVersioningEnabled(false)
-    setEncryptionType({ label: 'AES256', value: 'AES256' })
-  }
-
-  // Handle training gate block
-  function handleTrainingBlock(decision: PolicyDecision) {
-    setTrainingRequired(decision.required_modules || [])
-  }
-
-  // Handle errors
-  function handleError(error: Error) {
-    setFlashbarItems([{
-      type: 'error',
-      dismissible: true,
-      dismissLabel: 'Dismiss',
-      content: `Bucket Creation Failed: ${error.message}`,
-      onDismiss: () => setFlashbarItems([])
-    }])
-  }
-
-  // Toggle form visibility
-  function toggleForm() {
-    setShowForm(prev => !prev)
-    setTrainingRequired(null)
+  if (requiredModules.length > 0) {
+    return (
+      <div className="p-6 max-w-2xl">
+        <h1 className="text-xl font-semibold text-slate-900 mb-4">S3 Buckets</h1>
+        <TrainingGate requiredModules={requiredModules} operationName="S3 operations" />
+      </div>
+    )
   }
 
   return (
-    <SpaceBetween size="l">
-      <Flashbar items={flashbarItems} />
+    <div className="p-6 max-w-3xl">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-semibold text-slate-900">S3 Buckets</h1>
+        <button
+          onClick={() => setShowCreate(s => !s)}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md transition-colors"
+        >
+          <Plus className="h-4 w-4" /> Create Bucket
+        </button>
+      </div>
 
-      <Header
-        variant="h1"
-        actions={
-          <Button variant="primary" onClick={toggleForm}>
-            {showForm ? 'Cancel' : 'Create Bucket'}
-          </Button>
-        }
-      >
-        S3 Buckets
-      </Header>
-
-      {/* Training Required Gate */}
-      {trainingRequired && trainingRequired.length > 0 && (
-        <TrainingGate
-          requiredModules={trainingRequired}
-          operationName="S3 bucket creation"
-          onDismiss={() => setTrainingRequired(null)}
-        />
+      {error && (
+        <div className="mb-4 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+          <AlertCircle className="h-4 w-4 flex-none mt-0.5" /> {error}
+        </div>
       )}
 
-      {/* Bucket Creation Form */}
-      {showForm && (
-        <Container>
-          <Form
-            actions={
-              <SpaceBetween direction="horizontal" size="xs">
-                <Button variant="link" onClick={toggleForm}>Cancel</Button>
-                <Button
-                  variant="primary"
-                  disabled={!isFormValid || isCreating}
-                  loading={isCreating}
-                  onClick={handleCreateBucket}
-                >
-                  Create Bucket
-                </Button>
-              </SpaceBetween>
-            }
-          >
-            <SpaceBetween size="l">
-              <FormField
-                label="Bucket name"
-                errorText={bucketNameError || undefined}
-                description="Must be globally unique. 3-63 characters, lowercase letters, numbers, hyphens, and periods only."
-              >
-                <Input
-                  value={bucketName}
-                  onChange={(event) => setBucketName(event.detail.value)}
-                  placeholder="my-research-bucket"
-                  disabled={isCreating}
-                />
-              </FormField>
-
-              <FormField
-                label="AWS Region"
-                description="The AWS region where the bucket will be created"
-              >
-                <Select
-                  selectedOption={region}
-                  onChange={(event) => setRegion(event.detail.selectedOption)}
-                  options={regionOptions}
-                  disabled={isCreating}
-                />
-              </FormField>
-
-              <FormField
-                label="Encryption"
-                description="Server-side encryption for objects stored in the bucket"
-              >
-                <Select
-                  selectedOption={encryptionType}
-                  onChange={(event) => setEncryptionType(event.detail.selectedOption)}
-                  options={encryptionOptions}
-                  disabled={isCreating}
-                />
-              </FormField>
-
-              {encryptionType.value === 'aws:kms' && (
-                <FormField
-                  label="KMS Key ID"
-                  description="The AWS KMS key ID for encryption"
-                >
-                  <Input
-                    value={kmsKeyId}
-                    onChange={(event) => setKmsKeyId(event.detail.value)}
-                    placeholder="arn:aws:kms:us-east-1:123456789012:key/..."
-                    disabled={isCreating}
-                  />
-                </FormField>
-              )}
-
-              <FormField
-                label="Versioning"
-                description="Enable versioning to keep multiple versions of objects"
-              >
-                <Toggle
-                  checked={versioningEnabled}
-                  onChange={(event) => setVersioningEnabled(event.detail.checked)}
-                  disabled={isCreating}
-                >
-                  {versioningEnabled ? 'Enabled' : 'Disabled'}
-                </Toggle>
-              </FormField>
-
-              <FormField
-                label="Credential Profile"
-                description="AWS credential profile to use for this operation"
-              >
-                <Select
-                  selectedOption={selectedProfile}
-                  onChange={(event) => setSelectedProfile(event.detail.selectedOption)}
-                  options={profiles}
-                  disabled={isCreating}
-                />
-              </FormField>
-            </SpaceBetween>
-          </Form>
-        </Container>
+      {createMsg && (
+        <div className={cn('mb-4 p-3 rounded-lg border text-sm', createMsg.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600')}>
+          {createMsg.text}
+        </div>
       )}
 
-      {/* Empty State */}
-      {!showForm && (
-        <Container>
-          <SpaceBetween size="m">
-            <Box variant="h2">S3 Bucket Management</Box>
-            <Box variant="p">
-              Create and manage S3 buckets with integrated training gates and audit logging.
-            </Box>
-            <Box variant="p">
-              <strong>Note:</strong> S3 bucket creation requires completion of the S3 Basics training module.
-            </Box>
-            <Box variant="p" color="text-status-info">
-              Click "Create Bucket" above to get started.
-            </Box>
-          </SpaceBetween>
-        </Container>
+      {showCreate && (
+        <div className="mb-4 p-4 rounded-lg border border-slate-200 bg-white space-y-3">
+          <h2 className="text-sm font-semibold text-slate-700">New bucket</h2>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Bucket name</label>
+            <input
+              type="text"
+              value={bucketName}
+              onChange={e => setBucketName(e.target.value)}
+              placeholder="my-research-data"
+              className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+            />
+            <p className="text-xs text-slate-400 mt-1">3–63 characters, lowercase letters, numbers, and hyphens.</p>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Region</label>
+            <select
+              value={region}
+              onChange={e => setRegion(e.target.value)}
+              className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+            >
+              {['us-east-1','us-east-2','us-west-1','us-west-2','eu-west-1','eu-central-1','ap-southeast-1'].map(r => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button onClick={createBucket} disabled={creating || !bucketName.trim()}
+              className="px-4 py-1.5 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              {creating ? 'Creating…' : 'Create'}
+            </button>
+            <button onClick={() => setShowCreate(false)} className="px-4 py-1.5 text-sm text-slate-600 hover:text-slate-800">Cancel</button>
+          </div>
+        </div>
       )}
-    </SpaceBetween>
+
+      {buckets.length === 0 ? (
+        <div className="text-center py-12 text-slate-400">
+          <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-40" />
+          <p className="text-sm">No buckets yet. Create your first bucket above.</p>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {buckets.map(b => (
+            <div key={b.bucket_name} className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-white hover:border-slate-300 transition-colors">
+              <div className="flex items-center gap-2.5">
+                <FolderOpen className="h-4 w-4 text-slate-400 flex-none" />
+                <div>
+                  <p className="text-sm font-medium text-slate-900">{b.bucket_name}</p>
+                  {b.region && <p className="text-xs text-slate-400">{b.region}</p>}
+                </div>
+              </div>
+              {b.created_at && <span className="text-xs text-slate-400">{new Date(b.created_at).toLocaleDateString()}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

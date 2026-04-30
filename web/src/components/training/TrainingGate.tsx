@@ -1,102 +1,45 @@
 import { useNavigate } from 'react-router-dom'
-import Container from '@cloudscape-design/components/container'
-import SpaceBetween from '@cloudscape-design/components/space-between'
-import Box from '@cloudscape-design/components/box'
-import Button from '@cloudscape-design/components/button'
-import Badge from '@cloudscape-design/components/badge'
-import ColumnLayout from '@cloudscape-design/components/column-layout'
-import Icon from '@cloudscape-design/components/icon'
+import { Lock, BookOpen } from 'lucide-react'
 import type { TrainingModule } from '@/types/api'
 
-interface TrainingGateProps {
+interface Props {
   requiredModules: TrainingModule[]
-  operationName?: string
-  onDismiss?: () => void
+  operationName: string
 }
 
-export default function TrainingGate({ requiredModules, operationName = 'this operation', onDismiss }: TrainingGateProps) {
+export default function TrainingGate({ requiredModules, operationName }: Props) {
   const navigate = useNavigate()
 
-  if (requiredModules.length === 0) return null
-
-  const totalEstimatedTime = requiredModules.reduce((sum, module) => sum + module.estimated_minutes, 0)
-
-  function handleStartTraining(moduleName: string) {
-    navigate(`/training/${moduleName}`)
-  }
-
-  function handleBrowseAll() {
-    navigate('/training')
-  }
-
   return (
-    <Container>
-      <SpaceBetween size="m">
-        <Box textAlign="center" padding={{ vertical: 'm' }}>
-          <SpaceBetween size="s">
-            <Icon name="status-warning" size="big" variant="warning" />
-            <Box variant="h2">Training Required</Box>
-            <Box variant="p" color="text-body-secondary">
-              Complete the following training modules to unlock {operationName}
-            </Box>
-          </SpaceBetween>
-        </Box>
-
-        <ColumnLayout columns={requiredModules.length === 1 ? 1 : 2}>
-          {requiredModules.map((module) => (
-            <Container key={module.id}>
-              <SpaceBetween size="s">
-                <SpaceBetween size="xxs">
-                  <Box variant="h3">{module.title}</Box>
-                  {module.category && (
-                    <Badge color="blue">{module.category}</Badge>
+    <div className="rounded-lg border border-amber-200 bg-amber-50 p-5">
+      <div className="flex items-start gap-3">
+        <Lock className="h-5 w-5 text-amber-600 flex-none mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-amber-800">Training required for {operationName}</p>
+          <p className="text-sm text-amber-600 mt-1">
+            Complete the following modules to unlock this operation:
+          </p>
+          <div className="mt-3 space-y-1.5">
+            {requiredModules.map(m => (
+              <div key={m.id ?? m.name} className="flex items-center justify-between gap-3 p-2 bg-white rounded border border-amber-100">
+                <div className="flex items-center gap-2 min-w-0">
+                  <BookOpen className="h-3.5 w-3.5 text-amber-500 flex-none" />
+                  <span className="text-sm text-slate-700 truncate">{m.title}</span>
+                  {m.estimated_minutes && (
+                    <span className="text-xs text-slate-400 flex-none">{m.estimated_minutes} min</span>
                   )}
-                </SpaceBetween>
-
-                {module.description && (
-                  <Box variant="p" fontSize="body-s">
-                    {module.description}
-                  </Box>
-                )}
-
-                <SpaceBetween direction="horizontal" size="xs">
-                  <Box fontSize="body-s" color="text-body-secondary">
-                    <Icon name="status-in-progress" /> {module.estimated_minutes} minutes
-                  </Box>
-                  {module.difficulty && (
-                    <Box fontSize="body-s" color="text-body-secondary">
-                      <Icon name="zoom-to-fit" /> {module.difficulty}
-                    </Box>
-                  )}
-                </SpaceBetween>
-
-                <Button
-                  variant="primary"
-                  onClick={() => handleStartTraining(module.name)}
-                  iconName="arrow-right"
-                  iconAlign="right"
+                </div>
+                <button
+                  onClick={() => navigate(`/training/${m.name}`)}
+                  className="text-xs text-brand-600 hover:text-brand-700 font-medium flex-none"
                 >
-                  Start Training
-                </Button>
-              </SpaceBetween>
-            </Container>
-          ))}
-        </ColumnLayout>
-
-        <Box textAlign="center" padding={{ top: 's' }}>
-          <SpaceBetween size="s">
-            <Box variant="p" fontSize="body-s" color="text-body-secondary">
-              Total estimated time: {totalEstimatedTime} minutes
-            </Box>
-            <SpaceBetween direction="horizontal" size="xs">
-              <Button onClick={handleBrowseAll}>Browse All Training</Button>
-              {onDismiss && (
-                <Button onClick={onDismiss}>Dismiss</Button>
-              )}
-            </SpaceBetween>
-          </SpaceBetween>
-        </Box>
-      </SpaceBetween>
-    </Container>
+                  Start →
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

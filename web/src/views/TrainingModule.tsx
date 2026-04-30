@@ -1,255 +1,119 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import Container from '@cloudscape-design/components/container'
-import Header from '@cloudscape-design/components/header'
-import SpaceBetween from '@cloudscape-design/components/space-between'
-import Box from '@cloudscape-design/components/box'
-import Button from '@cloudscape-design/components/button'
-import ProgressBar from '@cloudscape-design/components/progress-bar'
-import Alert from '@cloudscape-design/components/alert'
-import { agentService } from '@/services/agent'
-import type { TrainingModule, TrainingSection } from '@/types/api'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Quiz from '@/components/training/Quiz'
+import { agentService } from '@/services/agent'
+import type { TrainingModule as TM, QuizQuestion } from '@/types/api'
 
-// Hardcoded user ID for now (TODO: Replace with actual auth)
-const USER_ID = '00000000-0000-0000-0000-000000000001'
-
-export default function TrainingModuleView() {
+export default function TrainingModule() {
   const { moduleName } = useParams<{ moduleName: string }>()
   const navigate = useNavigate()
-
-  const [module, setModule] = useState<TrainingModule | null>(null)
-  const [currentSectionIndex, setCurrentSectionIndex] = useState(0)
-  const [isLoading, setIsLoading] = useState(true)
+  const [module, setModule] = useState<TM | null>(null)
+  const [sections, setSections] = useState<{ title: string; content: string }[]>([])
+  const [quiz, setQuiz] = useState<QuizQuestion[]>([])
+  const [passingScore, setPassingScore] = useState(80)
+  const [sectionIndex, setSectionIndex] = useState(0)
+  const [showQuiz, setShowQuiz] = useState(false)
+  const [completed, setCompleted] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [isStarting, setIsStarting] = useState(false)
-  const [isCompleting, setIsCompleting] = useState(false)
-  const [hasStarted, setHasStarted] = useState(false)
-  const [quizScores, setQuizScores] = useState<Record<number, { score: number; passed: boolean }>>({})
-
-  const currentSection = useMemo<TrainingSection | null>(() => {
-    if (!module?.content?.sections) return null
-    return module.content.sections[currentSectionIndex]
-  }, [module, currentSectionIndex])
-
-  const progress = useMemo(() => {
-    if (!module?.content?.sections) return 0
-    const total = module.content.sections.length
-    return Math.round(((currentSectionIndex + 1) / total) * 100)
-  }, [module, currentSectionIndex])
-
-  const isFirstSection = useMemo(() => currentSectionIndex === 0, [currentSectionIndex])
-
-  const isLastSection = useMemo(() => {
-    if (!module?.content?.sections) return true
-    return currentSectionIndex === module.content.sections.length - 1
-  }, [module, currentSectionIndex])
-
-  const currentSectionQuizPassed = useMemo(() => {
-    if (currentSection?.type !== 'quiz') return true
-    return quizScores[currentSectionIndex]?.passed ?? false
-  }, [currentSection, currentSectionIndex, quizScores])
-
-  const averageQuizScore = useMemo(() => {
-    const scores = Object.values(quizScores)
-    if (scores.length === 0) return undefined
-    const sum = scores.reduce((acc, { score }) => acc + score, 0)
-    return Math.round(sum / scores.length)
-  }, [quizScores])
 
   useEffect(() => {
-    loadModule()
+    if (!moduleName) return
+    agentService.getTrainingModule(moduleName)
+      .then(m => {
+        setModule(m)
+        if (m.content) {
+          const c = typeof m.content === 'string' ? JSON.parse(m.content) : m.content
+          setSections(c.sections ?? [])
+          setQuiz(c.quiz ?? [])
+          setPassingScore(c.passing_score ?? 80)
+        }
+      })
+      .catch(e => setError(e instanceof Error ? e.message : 'Failed to load module'))
+      .finally(() => setLoading(false))
   }, [moduleName])
 
-  async function loadModule() {
-    if (!moduleName) {
-      setError('No module specified')
-      setIsLoading(false)
-      return
-    }
+  if (loading) return <div className="p-8 text-sm text-slate-500">Loading…</div>
+  if (error)   return <div className="p-8 text-sm text-red-500">{error}</div>
+  if (!module) return null
 
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const loadedModule = await agentService.getTrainingModule(moduleName)
-      setModule(loadedModule)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load training module')
-      console.error('Failed to load module:', err)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  async function startModule() {
-    if (!module) return
-
-    setIsStarting(true)
-    try {
-      await agentService.startTrainingModule(module.id, USER_ID)
-      setHasStarted(true)
-    } catch (err) {
-      console.error('Failed to start module:', err)
-      setError(err instanceof Error ? err.message : 'Failed to start module')
-    } finally {
-      setIsStarting(false)
-    }
-  }
-
-  async function completeModule() {
-    if (!module) return
-
-    setIsCompleting(true)
-    try {
-      await agentService.completeTrainingModule(module.id, USER_ID, averageQuizScore)
-      navigate('/training')
-    } catch (err) {
-      console.error('Failed to complete module:', err)
-      setError(err instanceof Error ? err.message : 'Failed to complete module')
-    } finally {
-      setIsCompleting(false)
-    }
-  }
-
-  function handleQuizComplete(score: number, passed: boolean) {
-    setQuizScores(prev => ({
-      ...prev,
-      [currentSectionIndex]: { score, passed },
-    }))
-  }
-
-  function previousSection() {
-    if (!isFirstSection) {
-      setCurrentSectionIndex(prev => prev - 1)
-    }
-  }
-
-  function nextSection() {
-    if (!isLastSection) {
-      setCurrentSectionIndex(prev => prev + 1)
-    }
-  }
-
-  function backToList() {
-    navigate('/training')
-  }
+  const progress = showQuiz ? 100 : sections.length > 0 ? Math.round(((sectionIndex) / sections.length) * 100) : 0
+  const currentSection = sections[sectionIndex]
 
   return (
-    <SpaceBetween size="l">
-      <Header
-        variant="h1"
-        actions={
-          <Button onClick={backToList}>Back to Training List</Button>
-        }
-      >
-        {module?.title || 'Loading...'}
-      </Header>
+    <div className="p-6 max-w-2xl">
+      {/* Back link */}
+      <button onClick={() => navigate('/training')} className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 mb-4">
+        <ChevronLeft className="h-4 w-4" /> Back to Training
+      </button>
 
-      {error && (
-        <Alert
-          type="error"
-          dismissible
-          onDismiss={() => setError(null)}
-        >
-          {error}
-        </Alert>
-      )}
+      <h1 className="text-xl font-semibold text-slate-900 mb-1">{module.title}</h1>
 
-      {isLoading && (
-        <Container>
-          <Box variant="p">Loading training module...</Box>
-        </Container>
-      )}
+      {/* Progress bar */}
+      <div className="mb-6">
+        <div className="flex justify-between text-xs text-slate-400 mb-1">
+          <span>{showQuiz ? 'Quiz' : `Section ${sectionIndex + 1} of ${sections.length}`}</span>
+          <span>{progress}%</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-full rounded-full bg-brand-500 transition-all" style={{ width: `${progress}%` }} />
+        </div>
+      </div>
 
-      {!isLoading && module && !hasStarted && (
-        <Container>
-          <SpaceBetween size="m">
-            <Box variant="h2">{module.title}</Box>
-            <Box variant="p">{module.description}</Box>
-            <Box fontSize="body-s">
-              <strong>Estimated time:</strong> {module.estimated_minutes} minutes
-            </Box>
-            {module.category && (
-              <Box fontSize="body-s">
-                <strong>Category:</strong> {module.category}
-              </Box>
-            )}
-            {module.difficulty && (
-              <Box fontSize="body-s">
-                <strong>Difficulty:</strong> {module.difficulty}
-              </Box>
-            )}
-            <Button
-              variant="primary"
-              loading={isStarting}
-              onClick={startModule}
+      {completed ? (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-6 text-center">
+          <p className="text-lg font-semibold text-green-800">Module Complete 🎉</p>
+          <p className="text-sm text-green-600 mt-1">Your access tags have been updated.</p>
+          <button onClick={() => navigate('/training')} className="mt-4 text-sm text-brand-600 hover:text-brand-700 font-medium">
+            Back to Training →
+          </button>
+        </div>
+      ) : showQuiz ? (
+        <div className="rounded-lg border border-slate-200 bg-white p-6">
+          <h2 className="text-base font-semibold text-slate-900 mb-4">Knowledge Check</h2>
+          <Quiz
+            moduleId={moduleName ?? ''}
+            userId="00000000-0000-0000-0000-000000000001"
+            questions={quiz}
+            passingScore={passingScore}
+            onComplete={(_, passed) => { if (passed) setCompleted(true) }}
+          />
+        </div>
+      ) : currentSection ? (
+        <div className="rounded-lg border border-slate-200 bg-white p-6">
+          <h2 className="text-base font-semibold text-slate-900 mb-3">{currentSection.title}</h2>
+          <div className="prose prose-sm prose-slate max-w-none text-slate-600 whitespace-pre-wrap leading-relaxed">
+            {currentSection.content}
+          </div>
+          <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
+            <button
+              onClick={() => setSectionIndex(i => i - 1)}
+              disabled={sectionIndex === 0}
+              className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 disabled:opacity-30"
             >
-              Start Training
-            </Button>
-          </SpaceBetween>
-        </Container>
-      )}
-
-      {!isLoading && module && hasStarted && currentSection && (
-        <Container>
-          <SpaceBetween size="m">
-            <ProgressBar
-              value={progress}
-              label={`Section ${currentSectionIndex + 1} of ${module.content?.sections?.length || 0}`}
-            />
-
-            <Box variant="h2">{currentSection.title}</Box>
-
-            {currentSection.type === 'text' && (
-              <div style={{ whiteSpace: 'pre-wrap' }}>
-                {currentSection.content}
-              </div>
-            )}
-
-            {currentSection.type === 'quiz' && currentSection.questions && module && (
-              <Quiz
-                moduleId={module.id}
-                userId={USER_ID}
-                questions={currentSection.questions}
-                onComplete={handleQuizComplete}
-              />
-            )}
-
-            <SpaceBetween direction="horizontal" size="xs">
-              <Button
-                onClick={previousSection}
-                disabled={isFirstSection}
+              <ChevronLeft className="h-4 w-4" /> Previous
+            </button>
+            {sectionIndex < sections.length - 1 ? (
+              <button
+                onClick={() => setSectionIndex(i => i + 1)}
+                className="flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-700"
               >
-                Previous
-              </Button>
-              {!isLastSection ? (
-                <Button
-                  variant="primary"
-                  onClick={nextSection}
-                  disabled={!currentSectionQuizPassed}
-                >
-                  Next
-                </Button>
-              ) : (
-                <Button
-                  variant="primary"
-                  loading={isCompleting}
-                  onClick={completeModule}
-                  disabled={!currentSectionQuizPassed}
-                >
-                  Complete Training
-                </Button>
-              )}
-            </SpaceBetween>
-            {!currentSectionQuizPassed && currentSection?.type === 'quiz' && (
-              <Alert type="info">
-                Pass the quiz to continue
-              </Alert>
+                Next <ChevronRight className="h-4 w-4" />
+              </button>
+            ) : (
+              <button
+                onClick={() => quiz.length > 0 ? setShowQuiz(true) : setCompleted(true)}
+                className="flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-700"
+              >
+                {quiz.length > 0 ? 'Start Quiz' : 'Complete'} <ChevronRight className="h-4 w-4" />
+              </button>
             )}
-          </SpaceBetween>
-        </Container>
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-slate-400">No content available for this module.</p>
       )}
-    </SpaceBetween>
+    </div>
   )
 }

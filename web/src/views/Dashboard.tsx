@@ -1,260 +1,182 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Container from '@cloudscape-design/components/container'
-import Header from '@cloudscape-design/components/header'
-import SpaceBetween from '@cloudscape-design/components/space-between'
-import Box from '@cloudscape-design/components/box'
-import ColumnLayout from '@cloudscape-design/components/column-layout'
-import Alert from '@cloudscape-design/components/alert'
-import Button from '@cloudscape-design/components/button'
-import Badge from '@cloudscape-design/components/badge'
-import ProgressBar from '@cloudscape-design/components/progress-bar'
+import { RefreshCw } from 'lucide-react'
 import { agentService } from '@/services/agent'
+import { cn } from '@/lib/utils'
 import type { DashboardStats, ActivityItem } from '@/types/api'
 
 const USER_ID = '00000000-0000-0000-0000-000000000001'
 
+const activityLabel: Record<string, string> = {
+  module_started:    'Started Module',
+  module_completed:  'Completed Module',
+  quiz_passed:       'Passed Quiz',
+  quiz_failed:       'Failed Quiz',
+  operation_blocked: 'Operation Blocked',
+}
+
+const activityColor: Record<string, string> = {
+  module_completed:  'bg-green-100 text-green-700',
+  quiz_passed:       'bg-green-100 text-green-700',
+  module_started:    'bg-blue-100 text-blue-700',
+  quiz_failed:       'bg-red-100 text-red-700',
+  operation_blocked: 'bg-red-100 text-red-700',
+}
+
+function formatTs(ts: string) {
+  const diff = (Date.now() - new Date(ts).getTime()) / 1000
+  if (diff < 60)  return 'Just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadDashboard()
-  }, [])
+  useEffect(() => { load() }, [])
 
-  async function loadDashboard() {
-    setIsLoading(true)
+  async function load() {
+    setLoading(true)
     setError(null)
-
     try {
-      const data = await agentService.getDashboardStats(USER_ID)
-      setStats(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load dashboard')
-      console.error('Failed to load dashboard:', err)
+      setStats(await agentService.getDashboardStats(USER_ID))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load dashboard')
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  function getActivityTypeLabel(type: string): string {
-    const labels: Record<string, string> = {
-      module_started: 'Started Module',
-      module_completed: 'Completed Module',
-      quiz_passed: 'Passed Quiz',
-      quiz_failed: 'Failed Quiz',
-      operation_blocked: 'Operation Blocked',
-    }
-    return labels[type] || type
-  }
+  if (loading) return (
+    <div className="p-8 text-sm text-slate-500">Loading dashboard...</div>
+  )
 
-  function getActivityTypeBadge(type: string): 'green' | 'blue' | 'red' | 'grey' | undefined {
-    if (type === 'module_completed' || type === 'quiz_passed') return 'green'
-    if (type === 'module_started') return 'blue'
-    if (type === 'quiz_failed' || type === 'operation_blocked') return 'red'
-    return 'grey'
-  }
+  if (error) return (
+    <div className="p-8 max-w-lg">
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+        <p className="font-medium text-red-700">Could not connect to qualify backend</p>
+        <p className="mt-1 text-sm text-red-600">{error}</p>
+        <p className="mt-2 text-xs text-red-500">Use the CLI in the meantime:{' '}
+          <code className="font-mono">qualify train status</code>
+        </p>
+        <button onClick={load} className="mt-3 flex items-center gap-1.5 text-sm text-red-700 hover:text-red-800 font-medium">
+          <RefreshCw className="h-3.5 w-3.5" /> Retry
+        </button>
+      </div>
+    </div>
+  )
 
-  function formatTimestamp(timestamp: string): string {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMins = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMs / 3600000)
-    const diffDays = Math.floor(diffMs / 86400000)
+  if (!stats) return null
 
-    if (diffMins < 1) return 'Just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffHours < 24) return `${diffHours}h ago`
-    if (diffDays < 7) return `${diffDays}d ago`
-    return date.toLocaleDateString()
-  }
-
-  if (isLoading) {
-    return (
-      <Container>
-        <Box variant="p">Loading dashboard...</Box>
-      </Container>
-    )
-  }
-
-  if (error) {
-    return (
-      <SpaceBetween size="l">
-        <Header variant="h1">Dashboard</Header>
-        <Alert
-          type="error"
-          header="Could not connect to qualify backend"
-          action={<Button onClick={loadDashboard}>Retry</Button>}
-        >
-          {error}
-          <Box variant="p" padding={{ top: 's' }}>
-            Make sure the qualify backend is running. Use the CLI in the meantime:{' '}
-            <code>qualify train required</code> and <code>qualify train status</code>
-          </Box>
-        </Alert>
-      </SpaceBetween>
-    )
-  }
-
-  if (!stats) {
-    return (
-      <Container>
-        <Box variant="p">No data available</Box>
-      </Container>
-    )
-  }
+  const { training_summary: ts, recent_activity, available_operations } = stats
 
   return (
-    <SpaceBetween size="l">
-      <Header variant="h1">Dashboard</Header>
+    <div className="p-6 space-y-6 max-w-4xl">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-slate-900">Dashboard</h1>
+        <button onClick={() => navigate('/training')} className="text-sm text-brand-600 hover:text-brand-700 font-medium">
+          View All Training
+        </button>
+      </div>
 
-      <Container
-        header={
-          <Header
-            variant="h2"
-            actions={
-              <Button onClick={() => navigate('/training')}>View All Training</Button>
-            }
-          >
-            Training Progress
-          </Header>
-        }
-      >
-        <SpaceBetween size="m">
-          <ColumnLayout columns={4} variant="text-grid">
-            <div>
-              <Box variant="awsui-key-label">Total Modules</Box>
-              <Box variant="awsui-value-large">{stats.training_summary.total_modules}</Box>
+      {/* Training summary */}
+      <div className="rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="text-sm font-semibold text-slate-700 mb-4">Training Progress</h2>
+        <div className="grid grid-cols-4 gap-4 mb-4">
+          {[
+            { label: 'Total Modules', value: ts.total_modules, color: 'text-slate-900' },
+            { label: 'Completed',     value: ts.completed,     color: 'text-green-600' },
+            { label: 'In Progress',   value: ts.in_progress,   color: 'text-blue-600' },
+            { label: 'Not Started',   value: ts.not_started,   color: 'text-slate-500' },
+          ].map(({ label, value, color }) => (
+            <div key={label}>
+              <p className="text-xs text-slate-500">{label}</p>
+              <p className={cn('text-2xl font-semibold mt-0.5', color)}>{value}</p>
             </div>
-            <div>
-              <Box variant="awsui-key-label">Completed</Box>
-              <Box variant="awsui-value-large" color="text-status-success">
-                {stats.training_summary.completed}
-              </Box>
-            </div>
-            <div>
-              <Box variant="awsui-key-label">In Progress</Box>
-              <Box variant="awsui-value-large" color="text-status-info">
-                {stats.training_summary.in_progress}
-              </Box>
-            </div>
-            <div>
-              <Box variant="awsui-key-label">Not Started</Box>
-              <Box variant="awsui-value-large">{stats.training_summary.not_started}</Box>
-            </div>
-          </ColumnLayout>
+          ))}
+        </div>
+        <div>
+          <div className="flex justify-between text-xs text-slate-500 mb-1">
+            <span>Overall Completion</span>
+            <span>{ts.completion_percentage}%
+              {ts.average_score !== undefined && ` · Average quiz score: ${ts.average_score}%`}
+            </span>
+          </div>
+          <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-full rounded-full bg-brand-500 transition-all" style={{ width: `${ts.completion_percentage}%` }} />
+          </div>
+        </div>
+      </div>
 
-          <ProgressBar
-            value={stats.training_summary.completion_percentage}
-            label="Overall Completion"
-            description={
-              stats.training_summary.average_score !== undefined
-                ? `Average quiz score: ${stats.training_summary.average_score}%`
-                : undefined
-            }
-          />
-        </SpaceBetween>
-      </Container>
-
-      <ColumnLayout columns={2}>
-        <Container
-          header={<Header variant="h2">Recent Activity</Header>}
-        >
-          {stats.recent_activity.length === 0 ? (
-            <Box variant="p" color="text-body-secondary">
-              No recent activity to display. Start a training module to see your progress here.
-            </Box>
+      <div className="grid grid-cols-2 gap-6">
+        {/* Recent Activity */}
+        <div className="rounded-lg border border-slate-200 bg-white p-5">
+          <h2 className="text-sm font-semibold text-slate-700 mb-3">Recent Activity</h2>
+          {recent_activity.length === 0 ? (
+            <p className="text-sm text-slate-400">No recent activity to display. Start a training module to see your progress here.</p>
           ) : (
-            <SpaceBetween size="s">
-              {stats.recent_activity.map((activity: ActivityItem) => (
-                <div key={activity.id}>
-                  <SpaceBetween size="xxs">
-                    <Box>
-                      <SpaceBetween direction="horizontal" size="xs">
-                        <Badge color={getActivityTypeBadge(activity.type)}>
-                          {getActivityTypeLabel(activity.type)}
-                        </Badge>
-                        {activity.score !== undefined && (
-                          <Badge color={activity.score >= 70 ? 'green' : 'red'}>
-                            {activity.score}%
-                          </Badge>
-                        )}
-                      </SpaceBetween>
-                    </Box>
-                    {activity.module_name && (
-                      <Box variant="p" fontSize="body-s">
-                        {activity.module_name}
-                      </Box>
+            <div className="space-y-2.5">
+              {recent_activity.map((a: ActivityItem) => (
+                <div key={a.id} className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full flex-none', activityColor[a.type] ?? 'bg-slate-100 text-slate-600')}>
+                      {activityLabel[a.type] ?? a.type}
+                    </span>
+                    {a.module_name && <span className="text-xs text-slate-500 truncate">{a.module_name}</span>}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-none">
+                    {a.score !== undefined && (
+                      <span className={cn('text-xs font-medium', a.score >= 70 ? 'text-green-600' : 'text-red-600')}>{a.score}%</span>
                     )}
-                    <Box fontSize="body-s" color="text-body-secondary">
-                      {formatTimestamp(activity.timestamp)}
-                    </Box>
-                  </SpaceBetween>
+                    <span className="text-xs text-slate-400">{formatTs(a.timestamp)}</span>
+                  </div>
                 </div>
               ))}
-            </SpaceBetween>
+            </div>
           )}
-        </Container>
+        </div>
 
-        <Container
-          header={<Header variant="h2">AWS Operations</Header>}
-        >
-          <SpaceBetween size="m">
-            {stats.available_operations.unlocked.length > 0 && (
-              <div>
-                <Box variant="h3" fontSize="heading-s" padding={{ bottom: 'xs' }}>
-                  Unlocked Operations
-                </Box>
-                <SpaceBetween size="xs">
-                  {stats.available_operations.unlocked.map(op => (
-                    <Box key={op} padding={{ left: 's' }}>
-                      <SpaceBetween direction="horizontal" size="xs">
-                        <Badge color="green">✓</Badge>
-                        <Box fontSize="body-s">{op}</Box>
-                      </SpaceBetween>
-                    </Box>
-                  ))}
-                </SpaceBetween>
+        {/* AWS Operations */}
+        <div className="rounded-lg border border-slate-200 bg-white p-5">
+          <h2 className="text-sm font-semibold text-slate-700 mb-3">AWS Operations</h2>
+          {available_operations.unlocked.length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs font-medium text-slate-500 mb-1.5">Unlocked Operations</p>
+              <div className="space-y-1">
+                {available_operations.unlocked.map((op: string) => (
+                  <div key={op} className="flex items-center gap-1.5 text-xs text-green-700">
+                    <span className="text-green-500">✓</span> {op}
+                  </div>
+                ))}
               </div>
-            )}
-
-            {stats.available_operations.locked.length > 0 && (
-              <div>
-                <Box variant="h3" fontSize="heading-s" padding={{ bottom: 'xs' }}>
-                  Locked Operations
-                </Box>
-                <Box variant="p" fontSize="body-s" color="text-body-secondary" padding={{ bottom: 's' }}>
-                  Complete required training to unlock these operations
-                </Box>
-                <SpaceBetween size="xs">
-                  {stats.available_operations.locked.map(op => (
-                    <Box key={op} padding={{ left: 's' }}>
-                      <SpaceBetween direction="horizontal" size="xs">
-                        <Badge color="grey">🔒</Badge>
-                        <Box fontSize="body-s" color="text-body-secondary">
-                          {op}
-                        </Box>
-                      </SpaceBetween>
-                    </Box>
-                  ))}
-                </SpaceBetween>
+            </div>
+          )}
+          {available_operations.locked.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-slate-500 mb-1.5">Locked Operations</p>
+          <p className="text-xs text-slate-400 mb-1.5">Complete required training to unlock these operations</p>
+              <div className="space-y-1">
+                {available_operations.locked.map((op: string) => (
+                  <div key={op} className="flex items-center gap-1.5 text-xs text-slate-400">
+                    <span>🔒</span> {op}
+                  </div>
+                ))}
               </div>
-            )}
-
-            {stats.available_operations.unlocked.length === 0 &&
-             stats.available_operations.locked.length === 0 && (
-              <Box variant="p" color="text-body-secondary">
-                {stats.training_summary.completed === 0
-                  ? 'Complete training modules to unlock AWS operations. Run: qualify train required'
-                  : 'Operations are determined by your active SRE environments. Contact your SRE admin.'}
-              </Box>
-            )}
-          </SpaceBetween>
-        </Container>
-      </ColumnLayout>
-    </SpaceBetween>
+            </div>
+          )}
+          {available_operations.unlocked.length === 0 && available_operations.locked.length === 0 && (
+            <p className="text-sm text-slate-400">
+              {ts.completed === 0
+                ? 'Complete training modules to unlock AWS operations. Run: qualify train required'
+                : 'Operations are determined by your active SRE environments. Contact your SRE admin.'}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
