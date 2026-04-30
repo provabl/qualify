@@ -18,6 +18,7 @@ import (
 	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 
+	"github.com/provabl/qualify/internal/localaudit"
 	"github.com/provabl/qualify/internal/training"
 )
 
@@ -272,6 +273,9 @@ func runTrainStart(moduleID, userID string, restart bool) error {
 	svc := training.NewService(db)
 	ctx := context.Background()
 
+	// Local audit log — always available, never blocks on DB.
+	alog, _ := localaudit.New() // error only if home dir unresolvable; treat as nil-safe
+
 	mod, err := svc.GetModule(ctx, moduleID)
 	if err != nil {
 		return fmt.Errorf("module %q not found: %w\n  Run 'qualify train list' to see available modules", moduleID, err)
@@ -310,6 +314,11 @@ func runTrainStart(moduleID, userID string, restart bool) error {
 	}
 	sep := strings.Repeat("─", sepWidth)
 
+	// Audit: module started (or resumed).
+	if alog != nil {
+		alog.ModuleStarted(userID, moduleID)
+	}
+
 	// ── Sections ────────────────────────────────────────────────────────────
 	if progress.SectionIndex < len(mc.Sections) {
 		for i := progress.SectionIndex; i < len(mc.Sections); i++ {
@@ -324,6 +333,9 @@ func runTrainStart(moduleID, userID string, restart bool) error {
 			// Save progress after each section.
 			progress.SectionIndex = i + 1
 			_ = saveProgress(progressPath, &progress)
+			if alog != nil {
+				alog.SectionCompleted(userID, moduleID, i+1, len(mc.Sections))
+			}
 
 			if i < len(mc.Sections)-1 {
 				fmt.Printf("  [Press Enter to continue — 'q' to save and quit] ")
@@ -376,9 +388,13 @@ func runTrainStart(moduleID, userID string, restart bool) error {
 			}
 
 			score := (correct * 100) / len(mc.Quiz)
+			passed := score >= mc.PassingScore
+			if alog != nil {
+				alog.QuizAttempt(userID, moduleID, attempt, score, mc.PassingScore, passed)
+			}
 			fmt.Printf("\n%s\n", sep)
 
-			if score >= mc.PassingScore {
+			if passed {
 				fmt.Printf("  Score: %d/%d (%d%%) — PASSED ✓\n", correct, len(mc.Quiz), score)
 				fmt.Printf("%s\n\n", sep)
 
@@ -387,8 +403,14 @@ func runTrainStart(moduleID, userID string, restart bool) error {
 					fmt.Printf("  ⚠ Could not record completion: %v\n", completeErr)
 					fmt.Printf("    Run 'qualify lab register-role --user %s --role-arn <arn>' to enable IAM tag writes.\n", userID)
 				} else {
+					if alog != nil {
+						alog.ModuleCompleted(userID, moduleID, score)
+					}
 					tagKey, hasTag := moduleTagMap[moduleID]
 					if hasTag {
+						if alog != nil {
+							alog.IAMTagWritten(userID, moduleID, tagKey)
+						}
 						fmt.Printf("  IAM tags written:\n")
 						fmt.Printf("    %-40s = true\n", tagKey)
 						fmt.Printf("    %-40s = <1 year from now>\n", tagKey+"-expiry")
@@ -413,6 +435,9 @@ func runTrainStart(moduleID, userID string, restart bool) error {
 			fmt.Printf("%s\n", sep)
 
 			if attempt == 2 {
+				if alog != nil {
+					alog.ModuleFailed(userID, moduleID, score, mc.PassingScore)
+				}
 				fmt.Printf("\n  Module not completed. Review the material and run:\n")
 				fmt.Printf("    qualify train start %s --restart\n", moduleID)
 				return nil
