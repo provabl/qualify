@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>qualify — Researcher training and access gating for AWS Secure Research Environments</title>
+    <meta name="description" content="qualify trains and qualifies researchers before granting access. Training completion writes IAM role tags that attest's Cedar policies evaluate in real time.">
+    <meta name="theme-color" content="#f8fafc">
+    <script>(function(){var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);}());</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <nav class="nav" role="navigation" aria-label="Main navigation">
+        <div class="nav-container">
+            <div class="nav-brand-group">
+                <a href="https://provabl.dev" class="nav-suite">provabl</a>
+                <span class="nav-sep" aria-hidden="true">/</span>
+                <span class="nav-product">qualify</span>
+            </div>
+            <button class="hamburger" id="hamburger-btn" aria-label="Toggle navigation" aria-expanded="false" aria-controls="nav-links">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-links" id="nav-links">
+                <a href="#how-it-works">How it works</a>
+                <a href="#modules">Modules</a>
+                <a href="#tag-contract">Tag contract</a>
+                <a href="https://github.com/provabl/qualify" target="_blank" rel="noopener noreferrer" aria-label="GitHub (opens in new tab)">GitHub</a>
+                <button class="btn-theme" id="theme-toggle" aria-label="Toggle color theme">
+                    <span id="theme-icon" aria-hidden="true">🌙</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main id="main-content">
+        <div class="container">
+
+            <header class="hero">
+                <div class="hero-eyebrow">People Layer</div>
+                <h1 class="product-accent">qualify</h1>
+                <p class="hero-sub">
+                    Train and qualify researchers before granting data access.
+                    Completion writes <code>attest:*</code> IAM role tags that attest's
+                    Cedar policies evaluate in real time — no training, no access.
+                </p>
+                <div class="hero-buttons">
+                    <a href="#how-it-works" class="btn btn-accent">How it works</a>
+                    <a href="https://github.com/provabl/qualify" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">GitHub</a>
+                </div>
+            </header>
+
+            <!-- How it works -->
+            <section id="how-it-works" class="section" aria-labelledby="how-heading">
+                <h2 id="how-heading">How it works</h2>
+                <p class="section-intro">qualify is the people layer of the Provabl suite. It sits between identity and access — training completion is the gate.</p>
+
+                <div class="flow">
+                    <div class="flow-step">
+                        <div class="flow-num">1</div>
+                        <div class="flow-body">
+                            <h3>Researcher completes training</h3>
+                            <p>Researcher works through the required modules for their data type and project. qualify tracks completion, scores, and timestamps per module.</p>
+                        </div>
+                    </div>
+                    <div class="flow-arrow" aria-hidden="true">↓</div>
+                    <div class="flow-step">
+                        <div class="flow-num">2</div>
+                        <div class="flow-body">
+                            <h3>qualify writes IAM tags</h3>
+                            <p>On completion, qualify writes <code>attest:*</code> tags to the researcher's IAM role. Tags include completion status, expiry timestamp, and lab identifier.</p>
+                            <div class="code-block">
+                                <pre><code><span class="cm"># Tags written by qualify on CUI training completion:</span>
+attest:cui-training=true
+attest:cui-training-expiry=2027-04-29T00:00:00Z
+attest:lab-id=chen-quantum-lab</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flow-arrow" aria-hidden="true">↓</div>
+                    <div class="flow-step">
+                        <div class="flow-num">3</div>
+                        <div class="flow-body">
+                            <h3>attest Cedar PDP re-evaluates</h3>
+                            <p>attest's continuous Cedar PDP reads the IAM tags as principal attributes. The next API call from that principal is evaluated against the updated policy — access is granted automatically.</p>
+                            <div class="code-block">
+                                <pre><code><span class="cm"># Cedar policy in attest (compiled from framework):</span>
+permit(
+  principal,
+  action == Action::"s3:GetObject",
+  resource in ResourceGroup::"cui-data"
+)
+when {
+  principal.CUITrainingCurrent == true &&
+  principal.CUITrainingExpiry > context.now
+};</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flow-arrow" aria-hidden="true">↓</div>
+                    <div class="flow-step">
+                        <div class="flow-num">4</div>
+                        <div class="flow-body">
+                            <h3>Expiry tracked automatically</h3>
+                            <p>Training expires per module (typically annual). qualify sends renewal reminders; attest's calendar surfaces approaching expiry. When a tag expires, Cedar denies access automatically.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Training modules -->
+            <section id="modules" class="section" aria-labelledby="modules-heading">
+                <h2 id="modules-heading">Training modules</h2>
+                <p class="section-intro">Each module maps to one or more compliance frameworks. Completion writes the corresponding IAM tags.</p>
+                <div class="modules-grid">
+                    <div class="module-card">
+                        <div class="module-tag">CUI / DoD</div>
+                        <h3>Controlled Unclassified Information</h3>
+                        <p>Required for CMMC Level 2. Covers CUI categories, handling requirements, marking, and safeguarding obligations under 32 CFR Part 2002.</p>
+                        <div class="module-tags">
+                            <code>attest:cui-training</code>
+                            <code>attest:cui-training-expiry</code>
+                        </div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-tag">Health</div>
+                        <h3>HIPAA Security &amp; Privacy</h3>
+                        <p>Required for PHI access. Covers the HIPAA Security Rule, minimum necessary standard, breach notification, and workforce training obligations.</p>
+                        <div class="module-tags">
+                            <code>attest:hipaa-training</code>
+                            <code>attest:hipaa-training-expiry</code>
+                        </div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-tag">Education</div>
+                        <h3>FERPA</h3>
+                        <p>Required for student record access. Covers education records, disclosure limitations, legitimate educational interest, and de-identification requirements.</p>
+                        <div class="module-tags">
+                            <code>attest:ferpa-training</code>
+                        </div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-tag">Export Control</div>
+                        <h3>ITAR / Export Controls</h3>
+                        <p>Required for DoD-funded research with foreign nationals or controlled technical data. Covers deemed exports, Technology Control Plans, and EAR/ITAR distinctions.</p>
+                        <div class="module-tags">
+                            <code>attest:itar-training</code>
+                        </div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-tag">Data</div>
+                        <h3>Data Classification</h3>
+                        <p>Institutional data classification framework. Covers identifying data sensitivity levels, handling requirements per classification, and proper storage and transmission controls.</p>
+                        <div class="module-tags">
+                            <code>attest:data-class-training</code>
+                        </div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-tag">NIH</div>
+                        <h3>Research Security</h3>
+                        <p>Required by NIH NOT-OD-26-017 for all key personnel on NIH-funded projects. Covers foreign influence disclosure, research integrity, and institutional reporting obligations.</p>
+                        <div class="module-tags">
+                            <code>attest:research-security-training</code>
+                        </div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-tag">Foundation</div>
+                        <h3>Security Awareness</h3>
+                        <p>Annual security awareness training satisfying CMMC Practice AC.1.001 and general workforce training requirements across HIPAA, NIST 800-171, and institutional policy.</p>
+                        <div class="module-tags">
+                            <code>attest:awareness-training</code>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tag contract -->
+            <section id="tag-contract" class="section" aria-labelledby="tag-heading">
+                <h2 id="tag-heading">IAM tag contract</h2>
+                <p class="section-intro">
+                    qualify writes these tags. attest reads them.
+                    Neither side needs to know how the other works — the tag namespace is the full interface.
+                </p>
+                <div class="code-block tag-table-block">
+                    <div class="code-titlebar" aria-hidden="true">
+                        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+                        <span class="code-label">IAM tag schema — qualify writes, attest reads</span>
+                    </div>
+                    <pre><code><span class="cm"># Training completion (bool string)</span>
+attest:cui-training              = "true" | "false"
+attest:hipaa-training            = "true" | "false"
+attest:awareness-training        = "true" | "false"
+attest:ferpa-training            = "true" | "false"
+attest:itar-training             = "true" | "false"
+attest:data-class-training       = "true" | "false"
+attest:research-security-training = "true" | "false"
+
+<span class="cm"># Expiry timestamps (RFC3339)</span>
+attest:cui-training-expiry       = "2027-04-29T00:00:00Z"
+attest:hipaa-training-expiry     = "2027-04-29T00:00:00Z"
+attest:awareness-training-expiry = "2027-04-29T00:00:00Z"
+
+<span class="cm"># Identity</span>
+attest:lab-id                    = "&lt;lab-identifier&gt;"
+attest:admin-level               = "none" | "env" | "sre"</code></pre>
+                </div>
+                <p class="doc-link">
+                    Full contract spec: <a href="https://github.com/provabl/attest/blob/main/docs/integrations/qualify.md">attest/docs/integrations/qualify.md</a>
+                </p>
+            </section>
+
+        </div>
+    </main>
+
+    <div class="container">
+        <footer role="contentinfo">
+            <div class="footer-inner">
+                <div>
+                    <div class="footer-suite">
+                        <a href="https://provabl.dev">provabl</a> /
+                        <span class="product-accent">qualify</span>
+                    </div>
+                    <p class="footer-sub">Apache 2.0</p>
+                </div>
+                <nav class="footer-links" aria-label="Suite navigation">
+                    <a href="https://attest.provabl.dev">attest</a>
+                    <a href="https://ground.provabl.dev">ground</a>
+                    <a href="https://github.com/provabl/qualify">GitHub</a>
+                    <a href="https://github.com/provabl/qualify/issues">Issues</a>
+                </nav>
+            </div>
+            <div class="footer-bottom">
+                <span>Made by <a href="https://github.com/scttfrdmn">@scttfrdmn</a></span>
+                <span>Apache 2.0</span>
+            </div>
+        </footer>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
