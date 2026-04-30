@@ -95,7 +95,7 @@ build-backend:
 build-cli:
 	@echo "→ Building CLI..."
 	@mkdir -p bin
-	@go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o $(CLI_BIN) ./cmd/ark
+	@go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o $(CLI_BIN) ./cmd/qualify
 	@echo "✓ CLI built: $(CLI_BIN)"
 
 ## install-tools: Install development tools
@@ -198,7 +198,7 @@ backend-dev:
 ## cli-dev: Run CLI in development mode
 cli-dev:
 	@echo "→ Running CLI in development mode..."
-	@go run ./cmd/ark $(ARGS)
+	@go run ./cmd/qualify $(ARGS)
 
 # Release targets
 .PHONY: release-build release-test
@@ -210,20 +210,20 @@ release-build:
 	# Linux amd64
 	@GOOS=linux GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-agent-linux-amd64 ./cmd/ark-agent
 	@GOOS=linux GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-backend-linux-amd64 ./cmd/ark-backend
-	@GOOS=linux GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-linux-amd64 ./cmd/ark
+	@GOOS=linux GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-linux-amd64 ./cmd/qualify
 	# Linux arm64
 	@GOOS=linux GOARCH=arm64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-agent-linux-arm64 ./cmd/ark-agent
 	@GOOS=linux GOARCH=arm64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-backend-linux-arm64 ./cmd/ark-backend
-	@GOOS=linux GOARCH=arm64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-linux-arm64 ./cmd/ark
+	@GOOS=linux GOARCH=arm64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-linux-arm64 ./cmd/qualify
 	# macOS amd64
 	@GOOS=darwin GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-agent-darwin-amd64 ./cmd/ark-agent
-	@GOOS=darwin GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-darwin-amd64 ./cmd/ark
+	@GOOS=darwin GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-darwin-amd64 ./cmd/qualify
 	# macOS arm64
 	@GOOS=darwin GOARCH=arm64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-agent-darwin-arm64 ./cmd/ark-agent
-	@GOOS=darwin GOARCH=arm64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-darwin-arm64 ./cmd/ark
+	@GOOS=darwin GOARCH=arm64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-darwin-arm64 ./cmd/qualify
 	# Windows amd64
 	@GOOS=windows GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-agent-windows-amd64.exe ./cmd/ark-agent
-	@GOOS=windows GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-windows-amd64.exe ./cmd/ark
+	@GOOS=windows GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-windows-amd64.exe ./cmd/qualify
 	@echo "✓ Release binaries built in dist/"
 
 ## release-test: Run all tests before release

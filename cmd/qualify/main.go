@@ -6,11 +6,11 @@ package main
 import (
 	"os"
 
-	"github.com/provabl/qualify/cmd/ark/cmd"
+	"github.com/provabl/qualify/cmd/qualify/cmd"
 )
 
 var (
-	version   = "dev"
+	version   = "0.2.0"
 	commitSHA = "unknown"
 	buildDate = "unknown"
 )

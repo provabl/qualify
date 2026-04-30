@@ -62,7 +62,7 @@ jobs:
             -trimpath \
             -ldflags="-s -w -X main.version=${{ steps.version.outputs.VERSION }}" \
             -o "${BINARY}" \
-            ./cmd/ark
+            ./cmd/qualify
           echo "BINARY=${BINARY}" >> "$GITHUB_ENV"
 
       - name: Attest build provenance (SLSA Level 2)
