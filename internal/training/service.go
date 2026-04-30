@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Scott Friedman
+// SPDX-License-Identifier: Apache-2.0
+
 package training
 
 import (
@@ -33,7 +36,7 @@ var moduleTagMap = map[string]string{
 	"ferpa-basics":           "attest:ferpa-training",
 	"itar-export-control":    "attest:itar-training",
 	"data-classification":    "attest:data-class-training",
-	"nih-research-security": "attest:research-security-training",
+	"nih-research-security":  "attest:research-security-training",
 }
 
 // defaultTrainingExpiry is how long a training certification is valid.

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Scott Friedman
+// SPDX-License-Identifier: Apache-2.0
+
 package cmd
 
 import (
@@ -22,15 +25,15 @@ var rootCmd = &cobra.Command{
 The training-as-tool approach embeds security education directly into AWS workflows,
 ensuring researchers can use cloud resources safely and compliantly from day one.
 
-Ark consists of three components:
+qualify consists of three components:
   • CLI      - Command-line interface for scripting and automation
   • Agent    - Local service (localhost:8737) that brokers AWS credentials
   • Backend  - Institutional backend for training, policies, and audit
 
 Getting Started:
-  1. Start the agent: ark agent start
-  2. Configure profile: ark config set profile default
-  3. Run AWS commands: ark s3 create-bucket my-bucket
+  1. Start the agent:    qualify agent start
+  2. Configure profile:  qualify config set profile default
+  3. Lab setup:          qualify lab setup --lab-id <id>
 
 For more information: https://github.com/provabl/qualify`,
 	Version: fmt.Sprintf("%s (commit: %s, built: %s)", Version, CommitSHA, BuildDate),
@@ -40,7 +43,7 @@ func init() {
 	// Global flags
 	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "Output in JSON format")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Verbose output")
-	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "Config file (default: ~/.ark/config.yml)")
+	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "Config file (default: ~/.qualify/config.yml)")
 
 	// Disable default completion command (we'll add our own)
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
