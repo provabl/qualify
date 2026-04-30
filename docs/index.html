@@ -307,7 +307,9 @@ attest:admin-level               = "none" | "env" | "sre"</code></pre>
 
                 <h3 style="font-size:.9rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin:2rem 0 .875rem;">Core commands</h3>
                 <div class="code-block">
-                    <pre><code><span class="accent-cmd">qualify</span> train required                         <span class="cm"># modules required for active attest frameworks</span>
+                    <pre><code><span class="accent-cmd">qualify</span> onboard --email &lt;email&gt; --lab-id &lt;id&gt;  <span class="cm"># full guided onboarding (role + training + lab)</span>
+<span class="accent-cmd">qualify</span> onboard --email &lt;email&gt; --dry-run      <span class="cm"># preview what would be configured</span>
+<span class="accent-cmd">qualify</span> train required                         <span class="cm"># modules required for active attest frameworks</span>
 <span class="accent-cmd">qualify</span> train required --framework hipaa nih-gds <span class="cm"># check specific frameworks offline</span>
 <span class="accent-cmd">qualify</span> train list                             <span class="cm"># all available modules</span>
 <span class="accent-cmd">qualify</span> train start &lt;module-id&gt;               <span class="cm"># begin or resume a module</span>
