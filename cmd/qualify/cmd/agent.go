@@ -212,13 +212,13 @@ func getDataDir() (string, error) {
 		return dir, nil
 	}
 
-	// Use ~/.ark for data storage
+	// Use ~/.qualify for data storage
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("get home directory: %w", err)
 	}
 
-	return filepath.Join(home, ".ark"), nil
+	return filepath.Join(home, ".qualify"), nil
 }
 
 // EnsureAgentRunning ensures the agent is running, starting it if necessary

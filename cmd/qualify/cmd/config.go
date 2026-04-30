@@ -21,8 +21,8 @@ func init() {
 
 var configCmd = &cobra.Command{
 	Use:   "config",
-	Short: "Manage Ark configuration",
-	Long:  `View and modify Ark configuration settings stored in ~/.ark/config.yml`,
+	Short: "Manage qualify configuration",
+	Long:  `View and modify qualify configuration settings stored in ~/.qualify/config.yml`,
 }
 
 var configGetCmd = &cobra.Command{

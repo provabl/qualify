@@ -42,7 +42,7 @@ var credentialsSetCmd = &cobra.Command{
 	Short: "Store AWS credentials for a profile",
 	Long: `Store AWS credentials for a named profile.
 
-The credentials are stored in the agent's local database at ~/.ark/agent.db.
+The credentials are stored in the agent's local database at ~/.qualify/agent.db.
 They are used automatically when you run AWS operations.
 
 Examples:

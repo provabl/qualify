@@ -11,7 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config represents the Ark configuration
+// Config represents the qualify configuration
 type Config struct {
 	// Current active profile
 	CurrentProfile string `yaml:"current_profile"`
@@ -129,13 +129,13 @@ func GetConfigPath() (string, error) {
 		return path, nil
 	}
 
-	// Use ~/.ark/config.yml
+	// Use ~/.qualify/config.yml
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("get home directory: %w", err)
 	}
 
-	return filepath.Join(home, ".ark", "config.yml"), nil
+	return filepath.Join(home, ".qualify", "config.yml"), nil
 }
 
 // Set sets a configuration value by key path (e.g., "agent.port")
