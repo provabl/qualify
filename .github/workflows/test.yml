@@ -146,8 +146,14 @@ jobs:
           migrate -path migrations -database "postgresql://postgres:postgres@localhost:5432/qualify_test?sslmode=disable" up
 
       - name: Start backend server
+        env:
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: qualify_test
+          DB_SSLMODE: disable
         run: |
-          export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/qualify_test?sslmode=disable"
           ./bin/qualify-backend &
           echo $! > backend.pid
           # Wait for backend to be ready
