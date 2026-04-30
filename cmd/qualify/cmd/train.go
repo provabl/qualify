@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 
 	"github.com/provabl/qualify/internal/training"
@@ -256,9 +257,9 @@ type quizQuestion struct {
 
 // trainProgress is saved to ~/.qualify/progress/<module-id>.json
 type trainProgress struct {
-	ModuleID       string `json:"module_id"`
-	SectionIndex   int    `json:"section_index"`   // next section to show
-	SectionsTotal  int    `json:"sections_total"`
+	ModuleID      string `json:"module_id"`
+	SectionIndex  int    `json:"section_index"` // next section to show
+	SectionsTotal int    `json:"sections_total"`
 }
 
 func runTrainStart(moduleID, userID string, restart bool) error {
@@ -301,7 +302,13 @@ func runTrainStart(moduleID, userID string, restart bool) error {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	sep := strings.Repeat("─", 70)
+	sepWidth := 70
+	if isTTY {
+		if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && w > 40 {
+			sepWidth = min(w-2, 80)
+		}
+	}
+	sep := strings.Repeat("─", sepWidth)
 
 	// ── Sections ────────────────────────────────────────────────────────────
 	if progress.SectionIndex < len(mc.Sections) {
@@ -417,31 +424,94 @@ func runTrainStart(moduleID, userID string, restart bool) error {
 
 // --- helpers -----------------------------------------------------------------
 
-var mdBold = regexp.MustCompile(`\*\*([^*]+)\*\*`)
-var mdItalic = regexp.MustCompile(`\*([^*]+)\*`)
-var mdCode = regexp.MustCompile("`([^`]+)`")
+// ANSI terminal codes — applied only when stdout is a TTY.
+const (
+	ansiReset = "\x1b[0m"
+	ansiBold  = "\x1b[1m"
+	ansiDim   = "\x1b[2m"
+	ansiUnder = "\x1b[4m"
+)
 
-// renderText converts markdown-lite content to terminal text.
+// isTTY returns true when stdout is a real terminal (not a pipe or CI log).
+// When false, renderText degrades to plain text.
+var isTTY = term.IsTerminal(int(os.Stdout.Fd()))
+
+var (
+	mdBold    = regexp.MustCompile(`\*\*([^*\n]+)\*\*`)
+	mdItalic  = regexp.MustCompile(`\*([^*\n]+)\*`)
+	mdCode    = regexp.MustCompile("`([^`\n]+)`")
+	mdH1      = regexp.MustCompile(`(?m)^# (.+)$`)
+	mdH2      = regexp.MustCompile(`(?m)^## (.+)$`)
+	mdH3      = regexp.MustCompile(`(?m)^### (.+)$`)
+	mdNumList = regexp.MustCompile(`(?m)^(\d+)\. (.+)$`)
+	mdQuote   = regexp.MustCompile(`(?m)^> (.+)$`)
+)
+
+// renderText converts markdown-lite content to formatted terminal text.
+// Uses ANSI codes when stdout is a TTY; degrades to plain text otherwise.
 func renderText(s string) string {
-	// Unescape SQL escaped quotes.
+	// Unescape SQL-escaped single quotes.
 	s = strings.ReplaceAll(s, "''", "'")
-	// Strip markdown markers — terminal can't render bold/italic.
-	s = mdBold.ReplaceAllString(s, "$1")
-	s = mdItalic.ReplaceAllString(s, "$1")
-	s = mdCode.ReplaceAllString(s, "`$1`")
-	// Convert list markers.
+
+	// Determine terminal width for wrapping (default 78 if not a TTY).
+	wrapWidth := 78
+	if isTTY {
+		if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && w > 40 {
+			wrapWidth = min(w-4, 90) // indent of 2 + some margin
+		}
+	}
+
+	if isTTY {
+		// Headers.
+		s = mdH1.ReplaceAllString(s, ansiBold+ansiUnder+"$1"+ansiReset)
+		s = mdH2.ReplaceAllString(s, ansiBold+"$1"+ansiReset)
+		s = mdH3.ReplaceAllString(s, ansiBold+ansiDim+"$1"+ansiReset)
+		// Inline formatting.
+		s = mdBold.ReplaceAllString(s, ansiBold+"$1"+ansiReset)
+		s = mdItalic.ReplaceAllString(s, "$1") // italic unreliable in terminals
+		s = mdCode.ReplaceAllString(s, ansiDim+"`$1`"+ansiReset)
+		// Blockquote.
+		s = mdQuote.ReplaceAllString(s, ansiDim+"  │ $1"+ansiReset)
+	} else {
+		// Plain text: strip all markers.
+		s = mdH1.ReplaceAllString(s, "$1")
+		s = mdH2.ReplaceAllString(s, "$1")
+		s = mdH3.ReplaceAllString(s, "$1")
+		s = mdBold.ReplaceAllString(s, "$1")
+		s = mdItalic.ReplaceAllString(s, "$1")
+		s = mdCode.ReplaceAllString(s, "`$1`")
+		s = mdQuote.ReplaceAllString(s, "  $1")
+	}
+
+	// Lists — apply after inline formatting.
+	s = mdNumList.ReplaceAllString(s, "  $1. $2")
 	s = strings.ReplaceAll(s, "\n- ", "\n  • ")
-	// Wrap long lines.
+	s = strings.ReplaceAll(s, "\n  - ", "\n    • ") // nested lists
+
+	// Wrap paragraphs (split on blank lines, preserve list blocks).
 	var out strings.Builder
 	for _, para := range strings.Split(s, "\n\n") {
-		if strings.HasPrefix(para, "  •") {
-			out.WriteString(para)
+		trimmed := strings.TrimSpace(para)
+		if trimmed == "" {
+			continue
+		}
+		// Don't re-wrap list items or blockquotes — they may have ANSI codes.
+		if strings.Contains(trimmed, "  •") || strings.Contains(trimmed, "  │") ||
+			strings.Contains(trimmed, "  1.") || strings.Contains(trimmed, "  2.") {
+			out.WriteString(trimmed)
 		} else {
-			out.WriteString(wrapText(para, 72))
+			out.WriteString(wrapText(trimmed, wrapWidth))
 		}
 		out.WriteString("\n\n")
 	}
 	return strings.TrimRight(out.String(), "\n")
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // wrapText wraps text at max width, preserving existing newlines.
