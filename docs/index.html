@@ -30,6 +30,7 @@
                 <a href="#how-it-works">How it works</a>
                 <a href="#modules">Modules</a>
                 <a href="#tag-contract">Tag contract</a>
+                <a href="#cli-training">CLI training</a>
                 <a href="#ldap">LDAP / ITAR</a>
                 <a href="https://github.com/provabl/qualify" target="_blank" rel="noopener noreferrer" aria-label="GitHub (opens in new tab)">GitHub</a>
                 <button class="btn-theme" id="theme-toggle" aria-label="Toggle color theme">
@@ -216,6 +217,113 @@ attest:admin-level               = "none" | "env" | "sre"</code></pre>
             </section>
 
             <!-- Lab setup -->
+            <!-- CLI training flow -->
+            <section id="cli-training" class="section" aria-labelledby="cli-heading">
+                <h2 id="cli-heading">CLI training</h2>
+                <p class="section-intro">
+                    The qualify CLI delivers training modules directly in the terminal —
+                    no browser required. Researchers complete modules, pass quizzes, and
+                    receive IAM tag writes from the command line.
+                    A polished web-based interface is available as an institutional subscription.
+                </p>
+
+                <div class="flow">
+                    <div class="flow-step">
+                        <div class="flow-num">1</div>
+                        <div class="flow-body">
+                            <h3>Check required training</h3>
+                            <div class="code-block">
+                                <pre><code><span class="accent-cmd">qualify</span> train status
+
+<span class="out">Training status for alice@mru.edu</span>
+<span class="out">  cui-fundamentals        ✗ required  (CUI data access requires this)</span>
+<span class="out">  hipaa-privacy-security  ✗ required</span>
+<span class="out">  nih-research-security   ✗ required  (NIH funding)</span>
+<span class="out">  security-awareness      ✗ required  (annual)</span></code></pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flow-arrow" aria-hidden="true">↓</div>
+                    <div class="flow-step">
+                        <div class="flow-num">2</div>
+                        <div class="flow-body">
+                            <h3>Start a module</h3>
+                            <div class="code-block">
+                                <pre><code><span class="accent-cmd">qualify</span> train start cui-fundamentals
+
+<span class="out">── Section 1: What is Controlled Unclassified Information? ──────────</span>
+<span class="out"></span>
+<span class="out">CUI is information the Government creates or possesses that requires</span>
+<span class="out">safeguarding consistent with applicable laws and regulations...</span>
+<span class="out"></span>
+<span class="out">[Press Enter to continue, or 'q' to pause and resume later]</span></code></pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flow-arrow" aria-hidden="true">↓</div>
+                    <div class="flow-step">
+                        <div class="flow-num">3</div>
+                        <div class="flow-body">
+                            <h3>Complete the quiz</h3>
+                            <div class="code-block">
+                                <pre><code><span class="out">── Quiz ─────────────────────────────────────────────────────────────</span>
+<span class="out"></span>
+<span class="out">Q3: A contract deliverable with a DoD clause contains export-</span>
+<span class="out">controlled technical data. How should it be handled?</span>
+<span class="out"></span>
+<span class="out">  a) Share via email as a PDF attachment</span>
+<span class="out">  b) Store in CUI-designated S3 environment with access logging</span>
+<span class="out">  c) Post to a public GitHub repository (technical reports are OK)</span>
+<span class="out">  d) Save to personal OneDrive for convenience</span>
+<span class="out"></span>
+<span class="out">Your answer: </span>b
+
+<span class="out">✓ Correct. CUI must be stored in an authorized enclave.</span></code></pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flow-arrow" aria-hidden="true">↓</div>
+                    <div class="flow-step">
+                        <div class="flow-num">4</div>
+                        <div class="flow-body">
+                            <h3>IAM tags written automatically</h3>
+                            <div class="code-block">
+                                <pre><code><span class="out">✓ Module cui-fundamentals passed  (score: 9/10 — 90%)</span>
+<span class="out"></span>
+<span class="out">IAM role tags written:</span>
+<span class="out">  attest:cui-training        = true</span>
+<span class="out">  attest:cui-training-expiry = 2027-05-01T00:00:00Z</span>
+<span class="out">  attest:lab-id              = chen-quantum-lab</span>
+<span class="out"></span>
+<span class="out">Cedar PDP re-evaluates on next request — CUI access now permitted.</span>
+
+<span class="accent-cmd">qualify</span> train status
+<span class="out">  cui-fundamentals        ✓ current   expires 2027-05-01</span>
+<span class="out">  hipaa-privacy-security  ✗ required</span></code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="font-size:.9rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin:2rem 0 .875rem;">Core commands</h3>
+                <div class="code-block">
+                    <pre><code><span class="accent-cmd">qualify</span> train list                    <span class="cm"># all available modules</span>
+<span class="accent-cmd">qualify</span> train start &lt;module-id&gt;        <span class="cm"># begin or resume a module</span>
+<span class="accent-cmd">qualify</span> train status                   <span class="cm"># current training state</span>
+<span class="accent-cmd">qualify</span> train status --user &lt;email&gt;   <span class="cm"># admin: check any user</span>
+<span class="accent-cmd">qualify</span> lab setup --user &lt;email&gt; --lab-id &lt;id&gt;   <span class="cm"># assign to lab</span>
+<span class="accent-cmd">qualify</span> lab register-role --user &lt;email&gt; --role-arn &lt;arn&gt;</code></pre>
+                </div>
+
+                <div class="does-not" style="margin-top:1.25rem;">
+                    <h3>Open core boundary</h3>
+                    <ul>
+                        <li><strong>CLI (open source):</strong> terminal training, IAM tag writes, lab setup — everything an SRE admin needs. Fully functional.</li>
+                        <li><strong>Web UI (institutional subscription):</strong> browser-based guided experience, progress dashboards, LMS integration (Canvas, Blackboard), SSO (Shibboleth, Okta), compliance reporting, and expert-validated content updates as regulations change.</li>
+                    </ul>
+                </div>
+            </section>
+
             <!-- LDAP integration -->
             <section id="ldap" class="section" aria-labelledby="ldap-heading">
                 <h2 id="ldap-heading">Institutional LDAP integration</h2>
