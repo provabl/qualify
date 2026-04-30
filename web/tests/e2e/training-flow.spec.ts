@@ -8,10 +8,10 @@ test.describe('Training Flow', () => {
     await expect(page.locator('text=Training Modules').first()).toBeVisible({ timeout: 5000 })
 
     // Should show at least one module or empty state
-    const hasModules = await page.locator('[data-testid="training-module"], .module-card, text=/S3 Basics|IAM Basics/i').isVisible({ timeout: 3000 })
+    const hasModules = await page.locator('[data-testid="training-module"], .module-card, text=/CUI Fundamentals|Security Awareness|HIPAA|FERPA|NIH|Data Classification/i').isVisible({ timeout: 3000 })
       .catch(() => false)
 
-    const hasEmptyState = await page.locator('text=/No training modules|No modules available/i').isVisible({ timeout: 1000 })
+    const hasEmptyState = await page.locator('text=/No training|No modules|no training/i').isVisible({ timeout: 1000 })
       .catch(() => false)
 
     expect(hasModules || hasEmptyState).toBeTruthy()

@@ -10,44 +10,35 @@ test.describe('Home Page', () => {
   test('should have navigation links', async ({ page }) => {
     await page.goto('/')
 
-    // Use .first() to handle Cloudscape rendering multiple text matches
-    await expect(page.locator('text=Home').first()).toBeVisible()
-    await expect(page.locator('text=Dashboard').first()).toBeVisible()
-    // S3 appears multiple times (nav + page content) — check the nav link specifically
-    await expect(page.locator('nav a, [class*="side-navigation"] a').filter({ hasText: /^S3$/ }).first()).toBeVisible()
-    await expect(page.locator('text=Training').first()).toBeVisible()
+    // Use role-based selectors — Cloudscape SideNavigation renders links as <a> elements
+    await expect(page.getByRole('link', { name: 'Home' }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Dashboard' }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: 'S3' }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Training' }).first()).toBeVisible()
   })
 
   test('should navigate to different pages', async ({ page }) => {
     await page.goto('/')
 
-    // Navigate to Dashboard
-    await page.locator('nav a, [class*="side-navigation"] a').filter({ hasText: 'Dashboard' }).first().click()
+    // Use role-based link clicks — more reliable than text= with Cloudscape
+    await page.getByRole('link', { name: 'Dashboard' }).first().click()
     await expect(page).toHaveURL('/dashboard')
     await expect(page.locator('text=Dashboard').first()).toBeVisible()
 
-    // Navigate to Training
-    await page.locator('nav a, [class*="side-navigation"] a').filter({ hasText: 'Training' }).first().click()
+    await page.getByRole('link', { name: 'Training' }).first().click()
     await expect(page).toHaveURL('/training')
-    await expect(page.locator('text=Training Modules')).toBeVisible({ timeout: 8000 })
+    await expect(page.locator('text=Training Modules').first()).toBeVisible({ timeout: 8000 })
 
-    // Navigate back to Home
-    await page.locator('nav a, [class*="side-navigation"] a').filter({ hasText: 'Home' }).first().click()
+    await page.getByRole('link', { name: 'Home' }).first().click()
     await expect(page).toHaveURL('/')
     await expect(page.locator('text=Welcome to qualify')).toBeVisible()
   })
 
   test('should display agent status', async ({ page }) => {
-    await page.goto('/')
+    // The qualify agent runs locally on :8737 and is not started in CI.
+    test.skip(!!process.env.CI, 'qualify agent not started in CI environment')
 
-    // Agent status indicator is only present when the qualify agent is running.
-    // Skip gracefully in CI where agent is not started.
-    const agentStatus = page.locator('text=/Agent (Connected|Disconnected|Checking)/i')
-    const visible = await agentStatus.isVisible({ timeout: 3000 }).catch(() => false)
-    if (!visible) {
-      test.skip()
-      return
-    }
-    await expect(agentStatus).toBeVisible()
+    await page.goto('/')
+    await expect(page.locator('text=/Agent (Connected|Disconnected|Checking)/i').first()).toBeVisible({ timeout: 5000 })
   })
 })
