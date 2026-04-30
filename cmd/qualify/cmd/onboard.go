@@ -200,4 +200,3 @@ func shortARN(arn string) string {
 	}
 	return arn
 }
-

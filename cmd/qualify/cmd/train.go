@@ -4,14 +4,20 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
+
+	"github.com/provabl/qualify/internal/training"
 )
 
 func init() {
@@ -26,6 +32,7 @@ func trainCmd() *cobra.Command {
 		Long:  "Manage and run compliance training modules.",
 	}
 	cmd.AddCommand(trainRequiredCmd())
+	cmd.AddCommand(trainStartCmd())
 	cmd.AddCommand(trainStatusCmd())
 	cmd.AddCommand(trainListCmd())
 	return cmd
@@ -197,6 +204,338 @@ func runTrainRequired(attDir string, overrideFrameworks []string) error {
 	return nil
 }
 
+// trainStartCmd starts or resumes an interactive training module.
+func trainStartCmd() *cobra.Command {
+	var userID string
+	var restart bool
+
+	cmd := &cobra.Command{
+		Use:   "start <module-id>",
+		Short: "Start or resume a training module",
+		Long: `Run a training module interactively in the terminal.
+Presents each section, then runs the quiz. Completion writes IAM tags
+automatically so Cedar PDP grants access on the next request.
+
+Progress is saved automatically — you can quit and resume later.
+
+Examples:
+  qualify train start security-awareness
+  qualify train start cui-fundamentals
+  qualify train start nih-research-security`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runTrainStart(args[0], userID, restart)
+		},
+	}
+	cmd.Flags().StringVar(&userID, "user", os.Getenv("USER"), "user ID (defaults to $USER)")
+	cmd.Flags().BoolVar(&restart, "restart", false, "restart from the beginning even if progress exists")
+	return cmd
+}
+
+// moduleContent is the parsed JSON structure of training_modules.content.
+type moduleContent struct {
+	Sections     []contentSection `json:"sections"`
+	Quiz         []quizQuestion   `json:"quiz"`
+	PassingScore int              `json:"passing_score"`
+}
+
+type contentSection struct {
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Type    string `json:"type"`
+	Content string `json:"content"`
+}
+
+type quizQuestion struct {
+	ID          string   `json:"id"`
+	Question    string   `json:"question"`
+	Options     []string `json:"options"`
+	Correct     int      `json:"correct"`
+	Explanation string   `json:"explanation"`
+}
+
+// trainProgress is saved to ~/.qualify/progress/<module-id>.json
+type trainProgress struct {
+	ModuleID       string `json:"module_id"`
+	SectionIndex   int    `json:"section_index"`   // next section to show
+	SectionsTotal  int    `json:"sections_total"`
+}
+
+func runTrainStart(moduleID, userID string, restart bool) error {
+	db, err := openDB()
+	if err != nil {
+		return fmt.Errorf("database not available: %w\n  Start the qualify backend first, or set DB_HOST/DB_USER/DB_PASSWORD", err)
+	}
+	defer db.Close()
+
+	svc := training.NewService(db)
+	ctx := context.Background()
+
+	mod, err := svc.GetModule(ctx, moduleID)
+	if err != nil {
+		return fmt.Errorf("module %q not found: %w\n  Run 'qualify train list' to see available modules", moduleID, err)
+	}
+
+	if len(mod.Content) == 0 {
+		return fmt.Errorf("module %q has no content — run migrations to populate training content", moduleID)
+	}
+
+	var mc moduleContent
+	if jsonErr := json.Unmarshal(mod.Content, &mc); jsonErr != nil {
+		return fmt.Errorf("parse module content: %w", jsonErr)
+	}
+	if mc.PassingScore == 0 {
+		mc.PassingScore = 80
+	}
+
+	// Load or initialise progress.
+	progressPath := trainProgressPath(moduleID)
+	progress := trainProgress{ModuleID: moduleID, SectionsTotal: len(mc.Sections)}
+	if !restart {
+		if saved, loadErr := loadProgress(progressPath); loadErr == nil && saved.SectionIndex > 0 {
+			fmt.Printf("  Resuming %s from section %d of %d.\n",
+				mod.Title, saved.SectionIndex+1, len(mc.Sections))
+			fmt.Printf("  (Run 'qualify train start %s --restart' to begin again)\n\n", moduleID)
+			progress = *saved
+		}
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+	sep := strings.Repeat("─", 70)
+
+	// ── Sections ────────────────────────────────────────────────────────────
+	if progress.SectionIndex < len(mc.Sections) {
+		for i := progress.SectionIndex; i < len(mc.Sections); i++ {
+			sec := mc.Sections[i]
+			fmt.Printf("\n%s\n", sep)
+			fmt.Printf("  %s  —  Section %d of %d: %s\n", mod.Title, i+1, len(mc.Sections), sec.Title)
+			fmt.Printf("%s\n\n", sep)
+
+			fmt.Println(renderText(sec.Content))
+			fmt.Println()
+
+			// Save progress after each section.
+			progress.SectionIndex = i + 1
+			_ = saveProgress(progressPath, &progress)
+
+			if i < len(mc.Sections)-1 {
+				fmt.Printf("  [Press Enter to continue — 'q' to save and quit] ")
+				line, _ := reader.ReadString('\n')
+				if strings.TrimSpace(strings.ToLower(line)) == "q" {
+					fmt.Printf("\n  Progress saved. Resume with: qualify train start %s\n", moduleID)
+					return nil
+				}
+			}
+		}
+	}
+
+	// ── Quiz ─────────────────────────────────────────────────────────────────
+	if len(mc.Quiz) == 0 {
+		fmt.Printf("\n%s\n  No quiz for this module — marking complete.\n%s\n", sep, sep)
+	} else {
+		for attempt := 1; attempt <= 2; attempt++ {
+			if attempt > 1 {
+				fmt.Printf("\n  Let's try again. Review the sections above if needed.\n")
+			}
+
+			fmt.Printf("\n%s\n", sep)
+			fmt.Printf("  Quiz: %d questions, %d%% to pass\n", len(mc.Quiz), mc.PassingScore)
+			fmt.Printf("%s\n", sep)
+
+			correct := 0
+			var wrongAnswers []int
+			for qi, q := range mc.Quiz {
+				fmt.Printf("\n  Q%d: %s\n\n", qi+1, wrapText(q.Question, 68))
+				for oi, opt := range q.Options {
+					fmt.Printf("    %d) %s\n", oi+1, opt)
+				}
+				fmt.Printf("\n  Answer [1-%d]: ", len(q.Options))
+				line, _ := reader.ReadString('\n')
+				ans := parseAnswer(strings.TrimSpace(line), len(q.Options))
+
+				if ans == q.Correct {
+					fmt.Printf("  ✓ Correct.\n")
+					if q.Explanation != "" {
+						fmt.Printf("    %s\n", wrapText(q.Explanation, 68))
+					}
+					correct++
+				} else {
+					fmt.Printf("  ✗ Not quite. The answer was %d) %s\n", q.Correct+1, q.Options[q.Correct])
+					if q.Explanation != "" {
+						fmt.Printf("    %s\n", wrapText(q.Explanation, 68))
+					}
+					wrongAnswers = append(wrongAnswers, qi+1)
+				}
+			}
+
+			score := (correct * 100) / len(mc.Quiz)
+			fmt.Printf("\n%s\n", sep)
+
+			if score >= mc.PassingScore {
+				fmt.Printf("  Score: %d/%d (%d%%) — PASSED ✓\n", correct, len(mc.Quiz), score)
+				fmt.Printf("%s\n\n", sep)
+
+				// Mark complete and write IAM tags.
+				if completeErr := svc.CompleteModule(ctx, userID, moduleID, score); completeErr != nil {
+					fmt.Printf("  ⚠ Could not record completion: %v\n", completeErr)
+					fmt.Printf("    Run 'qualify lab register-role --user %s --role-arn <arn>' to enable IAM tag writes.\n", userID)
+				} else {
+					tagKey, hasTag := moduleTagMap[moduleID]
+					if hasTag {
+						fmt.Printf("  IAM tags written:\n")
+						fmt.Printf("    %-40s = true\n", tagKey)
+						fmt.Printf("    %-40s = <1 year from now>\n", tagKey+"-expiry")
+						fmt.Printf("\n  Cedar PDP will grant access on the next request.\n")
+					}
+				}
+
+				// Remove progress file — module complete.
+				_ = os.Remove(progressPath)
+
+				// Suggest next module.
+				if next := nextRequired(moduleID); next != "" {
+					fmt.Printf("\n  Next up: qualify train start %s\n", next)
+				}
+				return nil
+			}
+
+			fmt.Printf("  Score: %d/%d (%d%%) — need %d%% to pass\n", correct, len(mc.Quiz), score, mc.PassingScore)
+			if len(wrongAnswers) > 0 {
+				fmt.Printf("  Review sections above, then try again (attempt %d of 2).\n", attempt)
+			}
+			fmt.Printf("%s\n", sep)
+
+			if attempt == 2 {
+				fmt.Printf("\n  Module not completed. Review the material and run:\n")
+				fmt.Printf("    qualify train start %s --restart\n", moduleID)
+				return nil
+			}
+		}
+	}
+	return nil
+}
+
+// --- helpers -----------------------------------------------------------------
+
+var mdBold = regexp.MustCompile(`\*\*([^*]+)\*\*`)
+var mdItalic = regexp.MustCompile(`\*([^*]+)\*`)
+var mdCode = regexp.MustCompile("`([^`]+)`")
+
+// renderText converts markdown-lite content to terminal text.
+func renderText(s string) string {
+	// Unescape SQL escaped quotes.
+	s = strings.ReplaceAll(s, "''", "'")
+	// Strip markdown markers — terminal can't render bold/italic.
+	s = mdBold.ReplaceAllString(s, "$1")
+	s = mdItalic.ReplaceAllString(s, "$1")
+	s = mdCode.ReplaceAllString(s, "`$1`")
+	// Convert list markers.
+	s = strings.ReplaceAll(s, "\n- ", "\n  • ")
+	// Wrap long lines.
+	var out strings.Builder
+	for _, para := range strings.Split(s, "\n\n") {
+		if strings.HasPrefix(para, "  •") {
+			out.WriteString(para)
+		} else {
+			out.WriteString(wrapText(para, 72))
+		}
+		out.WriteString("\n\n")
+	}
+	return strings.TrimRight(out.String(), "\n")
+}
+
+// wrapText wraps text at max width, preserving existing newlines.
+func wrapText(s string, width int) string {
+	var out strings.Builder
+	for _, line := range strings.Split(s, "\n") {
+		if utf8.RuneCountInString(line) <= width {
+			out.WriteString(line)
+			out.WriteRune('\n')
+			continue
+		}
+		words := strings.Fields(line)
+		col := 0
+		for i, w := range words {
+			wl := utf8.RuneCountInString(w)
+			if col > 0 && col+1+wl > width {
+				out.WriteRune('\n')
+				col = 0
+			}
+			if i > 0 && col > 0 {
+				out.WriteRune(' ')
+				col++
+			}
+			out.WriteString(w)
+			col += wl
+		}
+		out.WriteRune('\n')
+	}
+	return strings.TrimRight(out.String(), "\n")
+}
+
+// parseAnswer parses "1"-"4" input to 0-based index. Returns -1 on invalid.
+func parseAnswer(s string, max int) int {
+	if len(s) != 1 || s[0] < '1' || s[0] > byte('0'+max) {
+		return -1
+	}
+	return int(s[0]-'0') - 1
+}
+
+// nextRequired suggests the next required module after completing moduleID.
+func nextRequired(moduleID string) string {
+	order := []string{
+		"security-awareness", "data-classification", "cui-fundamentals",
+		"hipaa-privacy-security", "ferpa-basics", "itar-export-control",
+		"nih-research-security", "countries-of-concern-awareness",
+	}
+	for i, m := range order {
+		if m == moduleID && i+1 < len(order) {
+			return order[i+1]
+		}
+	}
+	return ""
+}
+
+// --- progress persistence ----------------------------------------------------
+
+func trainProgressPath(moduleID string) string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".qualify", "progress", moduleID+".json")
+}
+
+func saveProgress(path string, p *trainProgress) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(p, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o640)
+}
+
+func loadProgress(path string) (*trainProgress, error) {
+	data, err := os.ReadFile(path) // #nosec G304 — user's own home dir
+	if err != nil {
+		return nil, err
+	}
+	var p trainProgress
+	return &p, json.Unmarshal(data, &p)
+}
+
+// moduleTagMap is a local copy so trainStartCmd can show which tag was written.
+// The authoritative map is in internal/training/service.go.
+var moduleTagMap = map[string]string{
+	"cui-fundamentals":               "attest:cui-training",
+	"hipaa-privacy-security":         "attest:hipaa-training",
+	"security-awareness":             "attest:awareness-training",
+	"ferpa-basics":                   "attest:ferpa-training",
+	"itar-export-control":            "attest:itar-training",
+	"data-classification":            "attest:data-class-training",
+	"nih-research-security":          "attest:research-security-training",
+	"countries-of-concern-awareness": "attest:coc-check-current",
+}
+
 // trainStatusCmd shows the current training completion status.
 func trainStatusCmd() *cobra.Command {
 	var userID string
@@ -251,14 +590,19 @@ func runTrainStatus(userID string) error {
 		}
 		if status == nil || *status == "" {
 			fmt.Printf("  ✗ %-40s  not started\n", title)
+			if unlocks := moduleUnlocks(name); unlocks != "" {
+				fmt.Printf("    Unlocks: %s\n", unlocks)
+			}
+			fmt.Printf("    qualify train start %s\n\n", name)
 		} else if *status == "completed" {
 			expiry := ""
 			if expiresAt != nil {
-				expiry = "  expires " + *expiresAt
+				expiry = "  (expires " + *expiresAt + ")"
 			}
 			fmt.Printf("  ✓ %-40s  complete%s\n", title, expiry)
 		} else {
 			fmt.Printf("  … %-40s  in progress\n", title)
+			fmt.Printf("    qualify train start %s\n\n", name)
 		}
 	}
 	if !found {
@@ -266,6 +610,21 @@ func runTrainStatus(userID string) error {
 		fmt.Println("  Run 'qualify train required' to see what's needed.")
 	}
 	return rows.Err()
+}
+
+// moduleUnlocks returns a human-readable description of what completing a module unlocks.
+func moduleUnlocks(moduleID string) string {
+	unlocks := map[string]string{
+		"security-awareness":             "basic AWS access in all environments",
+		"data-classification":            "data-classified S3 buckets and EC2",
+		"cui-fundamentals":               "CUI S3 buckets, CUI research OU access",
+		"hipaa-privacy-security":         "PHI environments, HIPAA research OU",
+		"ferpa-basics":                   "student records environments",
+		"itar-export-control":            "ITAR research environments, export-controlled data",
+		"nih-research-security":          "NIH controlled-access data (with active DUA)",
+		"countries-of-concern-awareness": "NIH controlled-access data (countries-of-concern gate)",
+	}
+	return unlocks[moduleID]
 }
 
 // trainListCmd lists available training modules.

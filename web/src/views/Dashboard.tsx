@@ -86,10 +86,14 @@ export default function Dashboard() {
         <Header variant="h1">Dashboard</Header>
         <Alert
           type="error"
-          header="Failed to load dashboard"
+          header="Could not connect to qualify backend"
           action={<Button onClick={loadDashboard}>Retry</Button>}
         >
           {error}
+          <Box variant="p" padding={{ top: 's' }}>
+            Make sure the qualify backend is running. Use the CLI in the meantime:{' '}
+            <code>qualify train required</code> and <code>qualify train status</code>
+          </Box>
         </Alert>
       </SpaceBetween>
     )
@@ -243,7 +247,9 @@ export default function Dashboard() {
             {stats.available_operations.unlocked.length === 0 &&
              stats.available_operations.locked.length === 0 && (
               <Box variant="p" color="text-body-secondary">
-                No operations configured
+                {stats.training_summary.completed === 0
+                  ? 'Complete training modules to unlock AWS operations. Run: qualify train required'
+                  : 'Operations are determined by your active SRE environments. Contact your SRE admin.'}
               </Box>
             )}
           </SpaceBetween>
