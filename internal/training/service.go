@@ -703,3 +703,52 @@ func (s *Service) RecordActivity(ctx context.Context, userID, activityType, modu
 
 	return nil
 }
+
+// SetIdentityTags writes attest:lab-id and attest:admin-level to a user's IAM role.
+// These are identity attributes set during lab onboarding, not training-completion tags.
+// adminLevel must be one of: "none", "env", "sre".
+func (s *Service) SetIdentityTags(ctx context.Context, userID, labID, adminLevel string) error {
+	if s.iamTagger == nil {
+		return fmt.Errorf("IAM tagging not configured (no AWS credentials)")
+	}
+	switch adminLevel {
+	case "none", "env", "sre":
+	default:
+		return fmt.Errorf("invalid admin-level %q: must be none, env, or sre", adminLevel)
+	}
+	if labID == "" {
+		return fmt.Errorf("lab-id must not be empty")
+	}
+
+	roleARN := s.getUserRoleARN(ctx, userID)
+	if roleARN == "" {
+		return fmt.Errorf("no IAM role ARN found for user %s: register the role ARN first", userID)
+	}
+	roleName := extractRoleName(roleARN)
+	if roleName == "" {
+		return fmt.Errorf("could not extract role name from ARN: %s", roleARN)
+	}
+
+	_, err := s.iamTagger.TagRole(ctx, &iam.TagRoleInput{
+		RoleName: aws.String(roleName),
+		Tags: []iamtypes.Tag{
+			{Key: aws.String("attest:lab-id"), Value: aws.String(labID)},
+			{Key: aws.String("attest:admin-level"), Value: aws.String(adminLevel)},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("tagging IAM role %s: %w", roleName, err)
+	}
+	return nil
+}
+
+// RegisterRoleARN stores an IAM role ARN in the user's metadata for later tag writes.
+func (s *Service) RegisterRoleARN(ctx context.Context, userID, roleARN string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE users SET metadata = jsonb_set(COALESCE(metadata,'{}'), '{role_arn}', to_jsonb($2::text)) WHERE id = $1`,
+		userID, roleARN)
+	if err != nil {
+		return fmt.Errorf("register role ARN for user %s: %w", userID, err)
+	}
+	return nil
+}
