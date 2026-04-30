@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-04-30
+
+### Security
+
+- **`moduleTagMap` unexported** (`internal/training/tags.go`): was an exported mutable global; external callers could inject or overwrite module→tag mappings. Now unexported with `TagForModule()` and `ModuleIDs()` read-only accessors.
+- **CORS explicit origins** (`cmd/ark-backend/main.go`): replaced `localhost:*` wildcard (matches any port) with explicit ports 5173 and 5174. Added auth warning comment on unauthenticated `/api/*` routes.
+
+### Fixed
+
+- **`TrainingContent` TypeScript type** (`web/src/types/api.ts`): added `quiz?: QuizQuestion[]` and `passing_score?: number` fields. `TrainingModule.tsx` now parses module content as `TrainingContent` with a typed cast instead of duck-typing on `any`.
+- **`OnboardingWizard` type cast** (`web/src/components/onboarding/OnboardingWizard.tsx`): removed `as any` cast on `updateUserProfile` call; uses `satisfies Partial<UserProfile>` with explicit `UserPreferences` structure.
+- **Backend URL configurable** (`web/src/services/agent.ts`): `BACKEND_URL` and `AGENT_URL` now read from `VITE_BACKEND_URL` / `VITE_AGENT_URL` env vars with localhost fallback. Documented in `CONTRIBUTING.md`.
+
+### Added
+
+- **7 new tests for `RecordCountryCheck`**: invalid code rejection (5 cases), DB update, IAM tag writes (`attest:country`, `attest:coc-check-current`, `attest:coc-check-expiry`), expiry ~1 year, `TagForModule`/`ModuleIDs` accessors, immutability.
+
+### Docs
+
+- **README/CONTRIBUTING**: updated `React + Cloudscape` → `React + Radix UI + Tailwind`.
+- **README**: removed stale pending-rename notes for `cmd/ark-*` directories.
+- **CONTRIBUTING**: updated `moduleTagMap` reference to new location; added web env vars section.
+
 ## [0.1.0] - 2026-04-30
 
 First release — Foundation milestone complete.
