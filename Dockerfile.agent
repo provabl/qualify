@@ -1,55 +1,43 @@
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
-# Install build dependencies
 RUN apk add --no-cache git make
 
 WORKDIR /build
 
-# Copy go mod files
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
 COPY . .
 
-# Build agent binary
 ARG VERSION=dev
 ARG COMMIT_SHA=unknown
 ARG BUILD_DATE=unknown
 
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w -X main.version=${VERSION} -X main.commitSHA=${COMMIT_SHA} -X main.buildDate=${BUILD_DATE}" \
-    -o /build/bin/ark-agent \
+    -o /build/bin/qualify-agent \
     ./cmd/ark-agent
 
 # Runtime stage
-FROM alpine:3.19
+FROM alpine:3.21
 
-# Install ca-certificates for HTTPS calls
 RUN apk --no-cache add ca-certificates tzdata
 
-# Create non-root user
-RUN addgroup -g 1000 ark && \
-    adduser -D -u 1000 -G ark ark
+RUN addgroup -g 1000 qualify && \
+    adduser -D -u 1000 -G qualify qualify
 
 WORKDIR /app
 
-# Copy binary from builder
-COPY --from=builder /build/bin/ark-agent /app/ark-agent
+COPY --from=builder /build/bin/qualify-agent /app/qualify-agent
 
-# Set ownership
-RUN chown -R ark:ark /app
+RUN chown -R qualify:qualify /app
 
-# Switch to non-root user
-USER ark
+USER qualify
 
-# Expose agent port (localhost only in production)
 EXPOSE 8737
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8737/api/system/health || exit 1
 
-# Run agent
-CMD ["/app/ark-agent"]
+CMD ["/app/qualify-agent"]

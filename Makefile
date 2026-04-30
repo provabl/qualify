@@ -108,26 +108,27 @@ install-tools:
 ## docker-build: Build Docker images
 docker-build:
 	@echo "→ Building Docker images..."
-	@docker build -t ark-agent:$(VERSION) -f docker/Dockerfile.agent .
-	@docker build -t ark-backend:$(VERSION) -f docker/Dockerfile.backend .
+	@docker build -t qualify-agent:$(VERSION) -f Dockerfile.agent .
+	@docker build -t qualify-backend:$(VERSION) -f Dockerfile.backend .
 	@echo "✓ Docker images built"
 
-## docker-up: Start development environment (LocalStack + services)
+## docker-up: Start development environment (PostgreSQL + backend)
 docker-up:
 	@echo "→ Starting development environment..."
-	@docker-compose -f docker/docker-compose.dev.yml up -d
+	@docker compose up -d
 	@echo "✓ Development environment running"
 	@echo ""
 	@echo "Services:"
-	@echo "  LocalStack:  http://localhost:4566"
-	@echo "  Backend:     http://localhost:8080"
-	@echo "  Agent:       http://localhost:8737"
-	@echo "  Web:         http://localhost:5173"
+	@echo "  PostgreSQL:  localhost:5433"
+	@echo "  Backend:     http://localhost:8081"
+	@echo ""
+	@echo "Run migrations:"
+	@echo "  DB_HOST=localhost DB_PORT=5433 DB_USER=qualify DB_PASSWORD=qualify_dev_password DB_NAME=qualify qualify lab setup"
 
 ## docker-down: Stop development environment
 docker-down:
 	@echo "→ Stopping development environment..."
-	@docker-compose -f docker/docker-compose.dev.yml down
+	@docker compose down
 	@echo "✓ Development environment stopped"
 
 ## web-dev: Start web development server

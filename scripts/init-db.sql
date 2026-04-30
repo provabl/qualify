@@ -1,4 +1,4 @@
--- Ark Database Initialization
+-- qualify Database Initialization
 -- This script runs automatically when PostgreSQL container starts
 
 -- Create extensions (migrations will handle schema)

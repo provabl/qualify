@@ -1,28 +1,24 @@
-version: '3.9'
-
 services:
-  # PostgreSQL database
   postgres:
     image: postgres:16-alpine
-    container_name: ark-postgres
+    container_name: qualify-postgres
     environment:
-      POSTGRES_USER: ark
-      POSTGRES_PASSWORD: ark_dev_password
-      POSTGRES_DB: ark
+      POSTGRES_USER: qualify
+      POSTGRES_PASSWORD: qualify_dev_password
+      POSTGRES_DB: qualify
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ark"]
+      test: ["CMD-SHELL", "pg_isready -U qualify"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - ark-network
+      - qualify-network
 
-  # Backend service
   backend:
     build:
       context: .
@@ -31,14 +27,14 @@ services:
         VERSION: ${VERSION:-dev}
         COMMIT_SHA: ${COMMIT_SHA:-unknown}
         BUILD_DATE: ${BUILD_DATE:-unknown}
-    container_name: ark-backend
+    container_name: qualify-backend
     environment:
       PORT: "8080"
       DB_HOST: postgres
       DB_PORT: "5432"
-      DB_USER: ark
-      DB_PASSWORD: ark_dev_password
-      DB_NAME: ark
+      DB_USER: qualify
+      DB_PASSWORD: qualify_dev_password
+      DB_NAME: qualify
       DB_SSLMODE: disable
       MIGRATIONS_PATH: /app/migrations
       LOG_LEVEL: info
@@ -54,30 +50,20 @@ services:
       start_period: 10s
       retries: 3
     networks:
-      - ark-network
+      - qualify-network
     restart: unless-stopped
 
-  # Agent service (optional - typically runs on host)
-  # Uncomment if you want to test agent in Docker
+  # Agent runs on the host alongside the researcher's AWS CLI session.
+  # Uncomment to test agent in Docker:
   # agent:
   #   build:
   #     context: .
   #     dockerfile: Dockerfile.agent
-  #     args:
-  #       VERSION: ${VERSION:-dev}
-  #       COMMIT_SHA: ${COMMIT_SHA:-unknown}
-  #       BUILD_DATE: ${BUILD_DATE:-unknown}
-  #   container_name: ark-agent
+  #   container_name: qualify-agent
   #   ports:
   #     - "8737:8737"
-  #   healthcheck:
-  #     test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8737/api/system/health"]
-  #     interval: 30s
-  #     timeout: 3s
-  #     start_period: 5s
-  #     retries: 3
   #   networks:
-  #     - ark-network
+  #     - qualify-network
   #   restart: unless-stopped
 
 volumes:
@@ -85,5 +71,5 @@ volumes:
     driver: local
 
 networks:
-  ark-network:
+  qualify-network:
     driver: bridge

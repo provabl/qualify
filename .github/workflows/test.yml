@@ -18,7 +18,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version-file: go.mod
           cache: true
 
       - name: Install dependencies
@@ -97,7 +97,7 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: ark_test
+          POSTGRES_DB: qualify_test
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -113,7 +113,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version-file: go.mod
           cache: true
 
       - name: Set up Node.js
@@ -143,12 +143,12 @@ jobs:
           curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
           sudo mv migrate /usr/local/bin/
           # Run migrations
-          migrate -path migrations -database "postgresql://postgres:postgres@localhost:5432/ark_test?sslmode=disable" up
+          migrate -path migrations -database "postgresql://postgres:postgres@localhost:5432/qualify_test?sslmode=disable" up
 
       - name: Start backend server
         run: |
-          export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ark_test?sslmode=disable"
-          ./bin/ark-backend &
+          export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/qualify_test?sslmode=disable"
+          ./bin/qualify-backend &
           echo $! > backend.pid
           # Wait for backend to be ready
           timeout 30 bash -c 'until curl -f http://localhost:8080/health; do sleep 1; done'
@@ -194,7 +194,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version-file: go.mod
           cache: true
 
       - name: Install dependencies
