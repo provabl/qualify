@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>qualify — Researcher training and access gating for AWS Secure Research Environments</title>
-    <meta name="description" content="qualify trains and qualifies researchers before granting access. Training completion writes IAM role tags that attest's Cedar policies evaluate in real time.">
+    <title>qualify — User training and access gating for AWS Secure Research Environments</title>
+    <meta name="description" content="qualify trains and qualifies users before granting access. Training completion writes IAM role tags that attest's Cedar policies evaluate in real time.">
     <meta name="theme-color" content="#f8fafc">
     <script>(function(){var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);}());</script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -47,7 +47,7 @@
                 <div class="hero-eyebrow">People Layer</div>
                 <h1 class="product-accent">qualify</h1>
                 <p class="hero-sub">
-                    Train and qualify researchers before granting data access.
+                    Train and qualify users before granting data access.
                     Completion writes <code>attest:*</code> IAM role tags that attest's
                     Cedar policies evaluate in real time — no training, no access.
                 </p>
@@ -66,8 +66,8 @@
                     <div class="flow-step">
                         <div class="flow-num">1</div>
                         <div class="flow-body">
-                            <h3>Researcher completes training</h3>
-                            <p>Researcher works through the required modules for their data type and project. qualify tracks completion, scores, and timestamps per module.</p>
+                            <h3>User completes training</h3>
+                            <p>User works through the required modules for their data type and project. qualify tracks completion, scores, and timestamps per module.</p>
                         </div>
                     </div>
                     <div class="flow-arrow" aria-hidden="true">↓</div>
@@ -75,7 +75,7 @@
                         <div class="flow-num">2</div>
                         <div class="flow-body">
                             <h3>qualify writes IAM tags</h3>
-                            <p>On completion, qualify writes <code>attest:*</code> tags to the researcher's IAM role. Tags include completion status, expiry timestamp, and lab identifier.</p>
+                            <p>On completion, qualify writes <code>attest:*</code> tags to the user's IAM role. Tags include completion status, expiry timestamp, and lab identifier.</p>
                             <div class="code-block">
                                 <pre><code><span class="cm"># Tags written by qualify on CUI training completion:</span>
 attest:cui-training=true
@@ -222,7 +222,7 @@ attest:admin-level               = "none" | "env" | "sre"</code></pre>
                 <h2 id="cli-heading">CLI training</h2>
                 <p class="section-intro">
                     The qualify CLI delivers training modules directly in the terminal —
-                    no browser required. Researchers complete modules, pass quizzes, and
+                    no browser required. Users complete modules, pass quizzes, and
                     receive IAM tag writes from the command line.
                     A polished web-based interface is available as an institutional subscription.
                 </p>
@@ -404,7 +404,7 @@ citizenshipCountry: "CN"              <span class="cm"># → denied ITAR + NIH c
 
                 <h3 style="font-size:.95rem;font-weight:700;margin:1.75rem 0 .5rem;">How Cedar enforces it</h3>
                 <p style="font-size:.875rem;color:var(--text-secondary);margin-bottom:1rem;">
-                    Once <code>attest:country</code> is set on the researcher's IAM role (either
+                    Once <code>attest:country</code> is set on the user's IAM role (either
                     via LDAP or manually with <code>qualify lab setup</code>), attest's Cedar PDP
                     evaluates it against the ITAR and NIH GDS frameworks at every API call:
                 </p>
@@ -429,8 +429,8 @@ when {
                 <div class="does-not" style="margin-top:1.25rem;">
                     <h3>Important distinctions</h3>
                     <ul>
-                        <li><strong>ITAR checks citizenship/immigration status</strong> — not nationality or country of origin. A researcher born in Germany who is a US citizen is a US person. An H-1B researcher from Canada is not.</li>
-                        <li><strong>NIH countries-of-concern checks institutional affiliation</strong> — per NOT-OD-25-083, the restriction applies to the researcher's institutional affiliation country, not their citizenship. A US citizen at Peking University may be subject to this restriction.</li>
+                        <li><strong>ITAR checks citizenship/immigration status</strong> — not nationality or country of origin. A user born in Germany who is a US citizen is a US person. An H-1B user from Canada is not.</li>
+                        <li><strong>NIH countries-of-concern checks institutional affiliation</strong> — per NOT-OD-25-083, the restriction applies to the user's institutional affiliation country, not their citizenship. A US citizen at Peking University may be subject to this restriction.</li>
                         <li><strong>These are separate attributes</strong> — <code>attest:country</code> covers both, but the Cedar policies evaluate them with different semantics depending on the framework.</li>
                         <li><strong>Export Control office review required</strong> — LDAP-based determination is a first-pass screen. Your institution's Export Control office must review before granting or denying access to ITAR-controlled research.</li>
                     </ul>
@@ -450,10 +450,10 @@ when {
                         <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
                         <span class="code-label">bash — lab onboarding</span>
                     </div>
-                    <pre><code><span class="cm"># Register a researcher's IAM role ARN first</span>
+                    <pre><code><span class="cm"># Register a user's IAM role ARN first</span>
 qualify lab register-role \
   --user alice@mru.edu \
-  --role-arn arn:aws:iam::123456789012:role/researcher-alice
+  --role-arn arn:aws:iam::123456789012:role/user-alice
 
 <span class="cm"># Assign to a lab and set admin level</span>
 qualify lab setup \
@@ -466,7 +466,7 @@ qualify lab setup \
 <span class="cm"># attest:admin-level=none</span></code></pre>
                 </div>
                 <p class="doc-link">
-                    Admin levels: <strong>none</strong> (researcher, no admin access), <strong>env</strong> (environment admin), <strong>sre</strong> (SRE admin — phishing-resistant MFA required)
+                    Admin levels: <strong>none</strong> (user, no admin access), <strong>env</strong> (environment admin), <strong>sre</strong> (SRE admin — phishing-resistant MFA required)
                 </p>
             </section>
 
