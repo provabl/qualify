@@ -214,6 +214,35 @@ attest:admin-level               = "none" | "env" | "sre"</code></pre>
                 </p>
             </section>
 
+            <!-- Lab setup -->
+            <section id="lab-setup" class="section" aria-labelledby="lab-heading">
+                <h2 id="lab-heading">Lab setup commands</h2>
+                <p class="section-intro">Identity attributes (<code>attest:lab-id</code> and <code>attest:admin-level</code>) are set during lab onboarding, not on training completion.</p>
+                <div class="code-block tag-table-block">
+                    <div class="code-titlebar" aria-hidden="true">
+                        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+                        <span class="code-label">bash — lab onboarding</span>
+                    </div>
+                    <pre><code><span class="cm"># Register a researcher's IAM role ARN first</span>
+qualify lab register-role \
+  --user alice@mru.edu \
+  --role-arn arn:aws:iam::123456789012:role/researcher-alice
+
+<span class="cm"># Assign to a lab and set admin level</span>
+qualify lab setup \
+  --user alice@mru.edu \
+  --lab-id chen-quantum-lab \
+  --admin-level none   <span class="cm"># none | env | sre</span>
+
+<span class="cm"># Result: two IAM role tags written immediately</span>
+<span class="cm"># attest:lab-id=chen-quantum-lab</span>
+<span class="cm"># attest:admin-level=none</span></code></pre>
+                </div>
+                <p class="doc-link">
+                    Admin levels: <strong>none</strong> (researcher, no admin access), <strong>env</strong> (environment admin), <strong>sre</strong> (SRE admin — phishing-resistant MFA required)
+                </p>
+            </section>
+
         </div>
     </main>
 
@@ -230,6 +259,7 @@ attest:admin-level               = "none" | "env" | "sre"</code></pre>
                 <nav class="footer-links" aria-label="Suite navigation">
                     <a href="https://attest.provabl.dev">attest</a>
                     <a href="https://ground.provabl.dev">ground</a>
+                    <a href="https://vet.provabl.dev">vet</a>
                     <a href="https://github.com/provabl/qualify">GitHub</a>
                     <a href="https://github.com/provabl/qualify/issues">Issues</a>
                 </nav>
