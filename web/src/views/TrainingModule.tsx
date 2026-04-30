@@ -3,13 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Quiz from '@/components/training/Quiz'
 import { agentService } from '@/services/agent'
-import type { TrainingModule as TM, QuizQuestion } from '@/types/api'
+import type { TrainingModule as TM, TrainingContent, TrainingSection, QuizQuestion } from '@/types/api'
 
 export default function TrainingModule() {
   const { moduleName } = useParams<{ moduleName: string }>()
   const navigate = useNavigate()
   const [module, setModule] = useState<TM | null>(null)
-  const [sections, setSections] = useState<{ title: string; content: string }[]>([])
+  const [sections, setSections] = useState<TrainingSection[]>([])
   const [quiz, setQuiz] = useState<QuizQuestion[]>([])
   const [passingScore, setPassingScore] = useState(80)
   const [sectionIndex, setSectionIndex] = useState(0)
@@ -24,7 +24,9 @@ export default function TrainingModule() {
       .then(m => {
         setModule(m)
         if (m.content) {
-          const c = typeof m.content === 'string' ? JSON.parse(m.content) : m.content
+          const c: TrainingContent = typeof m.content === 'string'
+            ? JSON.parse(m.content) as TrainingContent
+            : m.content
           setSections(c.sections ?? [])
           setQuiz(c.quiz ?? [])
           setPassingScore(c.passing_score ?? 80)

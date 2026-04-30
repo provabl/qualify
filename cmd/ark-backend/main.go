@@ -148,7 +148,13 @@ func setupRouter(auditSvc *audit.Service, trainingSvc *training.Service) http.Ha
 
 	// CORS configuration
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:*", "http://127.0.0.1:*"},
+		// Restrict to known frontend ports — no wildcard port matching.
+		AllowedOrigins: []string{
+			"http://localhost:5173",  // Vite dev server
+			"http://localhost:5174",  // Playwright test server
+			"http://127.0.0.1:5173",
+			"http://127.0.0.1:5174",
+		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 		ExposedHeaders:   []string{"Link"},
@@ -160,6 +166,9 @@ func setupRouter(auditSvc *audit.Service, trainingSvc *training.Service) http.Ha
 	r.Get("/health", handleHealth)
 
 	// API routes
+	// WARNING: these endpoints have no authentication — any client on localhost can
+	// read or modify any user's training data. Do not expose this server on a public
+	// network without authentication. See GitHub issue #5 (SSO integration).
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/version", handleVersion)
 

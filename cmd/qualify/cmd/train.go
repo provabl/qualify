@@ -650,10 +650,15 @@ func loadProgress(path string) (*trainProgress, error) {
 	return &p, json.Unmarshal(data, &p)
 }
 
-// moduleTagMap is an alias for training.ModuleTagMap — the single canonical
-// source defined in internal/training/tags.go. References here keep the
-// variable name stable so existing callers in this file don't need changing.
-var moduleTagMap = training.ModuleTagMap
+// moduleTagMap wraps training.TagForModule for legacy map-style lookups in this file.
+// The authoritative mapping lives in internal/training/tags.go (unexported).
+var moduleTagMap = func() map[string]string {
+	m := make(map[string]string, len(training.ModuleIDs()))
+	for _, id := range training.ModuleIDs() {
+		m[id] = training.TagForModule(id)
+	}
+	return m
+}()
 
 // trainStatusCmd shows the current training completion status.
 func trainStatusCmd() *cobra.Command {

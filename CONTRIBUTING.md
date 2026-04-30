@@ -28,7 +28,7 @@ internal/
   audit/             DB-backed audit service (used by backend)
   database/          DB connection helpers
 migrations/          golang-migrate SQL files (numbered 000001+)
-web/                 React + Cloudscape dashboard (TypeScript, Vite)
+web/                 React + Radix UI + Tailwind dashboard (TypeScript, Vite)
 scripts/
   init-db.sql        PostgreSQL init (extensions only — migrations handle schema)
 ```
@@ -71,7 +71,7 @@ INSERT INTO training_modules (name, title, description, category, difficulty,
 DELETE FROM training_modules WHERE name = 'my-module';
 ```
 
-3. Add the module to `moduleTagMap` and `moduleUnlocks` in `cmd/qualify/cmd/train.go`.
+3. Add the module to `training.moduleTagMap` (in `internal/training/tags.go`) and `moduleUnlocks` in `cmd/qualify/cmd/train.go`.
 
 4. Add the module ID to the relevant framework mapping in migration `000007`.
 
@@ -100,6 +100,18 @@ export DB_USER=qualify
 export DB_PASSWORD=qualify_dev_password
 export DB_NAME=qualify
 ```
+
+## Web frontend environment variables
+
+```bash
+# Override backend URL (default: http://127.0.0.1:8081)
+export VITE_BACKEND_URL=http://localhost:8081
+
+# Override agent URL (default: http://127.0.0.1:8737)
+export VITE_AGENT_URL=http://localhost:8737
+```
+
+Set these in `web/.env.local` for persistent overrides (`.env.local` is gitignored).
 
 ## Commit style
 

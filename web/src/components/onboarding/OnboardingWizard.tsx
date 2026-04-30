@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { X, BookOpen, ShieldCheck, Zap, ChevronRight } from 'lucide-react'
 import { agentService } from '@/services/agent'
 import { cn } from '@/lib/utils'
-import type { TrainingModule } from '@/types/api'
+import type { TrainingModule, UserProfile } from '@/types/api'
 
 interface Props {
   visible: boolean
@@ -41,7 +41,9 @@ export default function OnboardingWizard({ visible, userId, trainingModules, onD
   async function finish() {
     setCompleting(true)
     try {
-      await agentService.updateUserProfile(userId, { preferences: { has_completed_onboarding: true } } as any)
+      await agentService.updateUserProfile(userId, {
+        preferences: { has_completed_onboarding: true, show_training_reminders: true },
+      } satisfies Partial<UserProfile>)
     } catch {
       // non-fatal
     } finally {

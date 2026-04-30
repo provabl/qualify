@@ -51,13 +51,10 @@ const (
 	TagAdminLevel = "attest:admin-level" // "none" | "env" | "sre"
 )
 
-// ModuleTagMap is the authoritative mapping from qualify training module IDs to
-// the attest:* IAM tag key written on completion. This is the single source of
-// truth — do not define this mapping anywhere else.
-//
-// Both svc.CompleteModule (which writes the tag) and the CLI display (which
-// shows the user which tag was written) must reference this map.
-var ModuleTagMap = map[string]string{
+// moduleTagMap is the authoritative mapping from qualify training module IDs to
+// the attest:* IAM tag key written on completion. Unexported to prevent external
+// mutation — use TagForModule() and ModuleIDs() for read access.
+var moduleTagMap = map[string]string{
 	"cui-fundamentals":               TagCUITraining,
 	"hipaa-privacy-security":         TagHIPAATraining,
 	"security-awareness":             TagAwarenessTraining,
@@ -66,6 +63,21 @@ var ModuleTagMap = map[string]string{
 	"data-classification":            TagDataClassTraining,
 	"nih-research-security":          TagResearchSecurityTraining,
 	"countries-of-concern-awareness": TagCOCCheckCurrent,
+}
+
+// TagForModule returns the attest:* IAM tag key for a training module ID.
+// Returns "" if the module has no tag mapping.
+func TagForModule(moduleID string) string {
+	return moduleTagMap[moduleID]
+}
+
+// ModuleIDs returns all module IDs that have a tag mapping.
+func ModuleIDs() []string {
+	ids := make([]string, 0, len(moduleTagMap))
+	for id := range moduleTagMap {
+		ids = append(ids, id)
+	}
+	return ids
 }
 
 // ModuleExpiryTag returns the expiry tag key for a given training tag key,

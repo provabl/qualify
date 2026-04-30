@@ -44,6 +44,8 @@ export interface TrainingModule {
 
 export interface TrainingContent {
   sections: TrainingSection[]
+  quiz?: QuizQuestion[]
+  passing_score?: number
 }
 
 export interface TrainingSection {

@@ -26,8 +26,9 @@ type iamTagWriter interface {
 	TagRole(ctx context.Context, params *iam.TagRoleInput, optFns ...func(*iam.Options)) (*iam.TagRoleOutput, error)
 }
 
-// ModuleTagMap is defined in tags.go — the authoritative source for all
-// qualify module ID → attest:* IAM tag key mappings.
+// moduleTagMap is defined in tags.go — the authoritative source for all
+// qualify module ID → attest:* IAM tag key mappings. Unexported; use
+// TagForModule() and ModuleIDs() for external access.
 
 // defaultTrainingExpiry is how long a training certification is valid.
 const defaultTrainingExpiry = 365 * 24 * time.Hour
@@ -370,7 +371,7 @@ func (s *Service) getUserRoleARN(ctx context.Context, userID string) string {
 // writeAttestTags writes attest:* IAM role tags when training is completed.
 // Enables attest's principal resolver to read training status for Cedar evaluation.
 func (s *Service) writeAttestTags(ctx context.Context, roleARN, moduleID string, expiresAt time.Time) error {
-	tagKey, ok := ModuleTagMap[moduleID]
+	tagKey, ok := moduleTagMap[moduleID]
 	if !ok {
 		return nil // no attest mapping for this module
 	}
