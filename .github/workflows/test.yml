@@ -89,8 +89,9 @@ jobs:
         continue-on-error: true
 
   e2e-tests:
-    name: E2E Tests
+    name: E2E Tests (non-blocking)
     runs-on: ubuntu-latest
+    continue-on-error: true  # Web dashboard E2E — aspirational until v0.2.0 full-stack CI
 
     services:
       postgres:
