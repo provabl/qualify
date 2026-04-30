@@ -30,6 +30,7 @@
                 <a href="#how-it-works">How it works</a>
                 <a href="#modules">Modules</a>
                 <a href="#tag-contract">Tag contract</a>
+                <a href="#ldap">LDAP / ITAR</a>
                 <a href="https://github.com/provabl/qualify" target="_blank" rel="noopener noreferrer" aria-label="GitHub (opens in new tab)">GitHub</a>
                 <button class="btn-theme" id="theme-toggle" aria-label="Toggle color theme">
                     <span id="theme-icon" aria-hidden="true">🌙</span>
@@ -215,6 +216,124 @@ attest:admin-level               = "none" | "env" | "sre"</code></pre>
             </section>
 
             <!-- Lab setup -->
+            <!-- LDAP integration -->
+            <section id="ldap" class="section" aria-labelledby="ldap-heading">
+                <h2 id="ldap-heading">Institutional LDAP integration</h2>
+                <p class="section-intro">
+                    qualify can read attributes directly from your institution's LDAP / Active Directory,
+                    automating lab membership assignment and — critically — US person determination
+                    for ITAR export control compliance.
+                </p>
+
+                <h3 style="font-size:.95rem;font-weight:700;margin:1.5rem 0 .5rem;">What LDAP provides</h3>
+                <p style="font-size:.875rem;color:var(--text-secondary);margin-bottom:1rem;">
+                    attest's principal resolver has a built-in LDAP source that queries your directory
+                    at Cedar evaluation time. It reads group membership (<code>memberOf</code>) to
+                    automatically populate lab assignments and admin levels — no manual
+                    <code>qualify lab setup</code> needed for institutions with well-structured directories.
+                    It can also read custom attributes for citizenship and residency status.
+                </p>
+
+                <div class="code-block">
+                    <div class="code-titlebar" aria-hidden="true">
+                        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+                        <span class="code-label">.attest/sre.yaml — LDAP source configuration</span>
+                    </div>
+                    <pre><code><span class="cm"># Configure the LDAP source in .attest/sre.yaml</span>
+principal_sources:
+  - type: ldap
+    url: "ldap://directory.university.edu:389"
+    base_dn: "dc=university,dc=edu"
+    bind_dn: "cn=attest-svc,ou=serviceaccounts,dc=university,dc=edu"
+    bind_pass_env: LDAP_BIND_PASS   <span class="cm"># read from environment variable</span>
+
+<span class="cm"># Groups mapped automatically:</span>
+<span class="cm">#   lab-*       → principal.LabMembership</span>
+<span class="cm">#   research-*  → principal.LabMembership</span>
+<span class="cm">#   admin-*     → principal.AdminLevel = "env"</span></code></pre>
+                </div>
+
+                <h3 style="font-size:.95rem;font-weight:700;margin:1.75rem 0 .5rem;">ITAR: US person determination</h3>
+                <p style="font-size:.875rem;color:var(--text-secondary);margin-bottom:.75rem;">
+                    ITAR (International Traffic in Arms Regulations) prohibits sharing controlled
+                    technical data with <strong>non-US persons</strong> — including on US soil
+                    (<em>deemed exports</em>). A US person is a US citizen, lawful permanent resident
+                    (LPR / green card), or protected individual. The determination is based on
+                    <em>immigration status</em>, not nationality or employer.
+                </p>
+                <p style="font-size:.875rem;color:var(--text-secondary);margin-bottom:1rem;">
+                    Many institutions store this in their HR/identity directory. The LDAP source
+                    can read these attributes and write the <code>attest:country</code> IAM tag
+                    that attest's Cedar policy evaluates before granting access to ITAR-scoped resources.
+                </p>
+
+                <div class="code-block">
+                    <div class="code-titlebar" aria-hidden="true">
+                        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+                        <span class="code-label">Common LDAP attributes for US person status</span>
+                    </div>
+                    <pre><code><span class="cm"># Attributes vary by institution — common patterns:</span>
+
+<span class="cm"># Option A: custom boolean attributes</span>
+usCitizen: TRUE
+permanentResident: TRUE
+
+<span class="cm"># Option B: employment authorization field</span>
+employmentEligibility: "USCitizen"
+employmentEligibility: "LPR"
+employmentEligibility: "OPT"          <span class="cm"># Optional Practical Training — non-US person</span>
+employmentEligibility: "H1B"          <span class="cm"># H-1B visa — non-US person</span>
+employmentEligibility: "J1"           <span class="cm"># J-1 Exchange Visitor — non-US person</span>
+
+<span class="cm"># Option C: country of citizenship</span>
+citizenshipCountry: "US"
+citizenshipCountry: "CN"              <span class="cm"># → denied ITAR + NIH countries-of-concern</span>
+
+<span class="cm"># The LDAP source maps these to attest:country IAM tag</span>
+<span class="cm"># US citizen or LPR → attest:country = "US"</span>
+<span class="cm"># Otherwise         → attest:country = &lt;ISO 3166-1 alpha-2&gt;</span></code></pre>
+                </div>
+
+                <h3 style="font-size:.95rem;font-weight:700;margin:1.75rem 0 .5rem;">How Cedar enforces it</h3>
+                <p style="font-size:.875rem;color:var(--text-secondary);margin-bottom:1rem;">
+                    Once <code>attest:country</code> is set on the researcher's IAM role (either
+                    via LDAP or manually with <code>qualify lab setup</code>), attest's Cedar PDP
+                    evaluates it against the ITAR and NIH GDS frameworks at every API call:
+                </p>
+
+                <div class="code-block">
+                    <pre><code><span class="cm"># Cedar policy compiled from itar framework:</span>
+forbid (principal, action, resource)
+when {
+  resource.itar_controlled == true &&
+  !(principal.institutional_affiliation_country == "US")
+};
+
+<span class="cm"># Cedar policy compiled from nih-gds framework (NOT-OD-25-083):</span>
+forbid (principal, action, resource)
+when {
+  resource.nih_controlled_access == true &&
+  principal.institutional_affiliation_country in
+    ["CN", "RU", "IR", "KP", "CU", "VE"]
+};</code></pre>
+                </div>
+
+                <div class="does-not" style="margin-top:1.25rem;">
+                    <h3>Important distinctions</h3>
+                    <ul>
+                        <li><strong>ITAR checks citizenship/immigration status</strong> — not nationality or country of origin. A researcher born in Germany who is a US citizen is a US person. An H-1B researcher from Canada is not.</li>
+                        <li><strong>NIH countries-of-concern checks institutional affiliation</strong> — per NOT-OD-25-083, the restriction applies to the researcher's institutional affiliation country, not their citizenship. A US citizen at Peking University may be subject to this restriction.</li>
+                        <li><strong>These are separate attributes</strong> — <code>attest:country</code> covers both, but the Cedar policies evaluate them with different semantics depending on the framework.</li>
+                        <li><strong>Export Control office review required</strong> — LDAP-based determination is a first-pass screen. Your institution's Export Control office must review before granting or denying access to ITAR-controlled research.</li>
+                    </ul>
+                </div>
+
+                <p class="doc-link" style="margin-top:1.25rem;">
+                    See also: <a href="https://attest.provabl.dev#frameworks">attest ITAR framework</a> ·
+                    <a href="https://github.com/provabl/attest/blob/main/docs/integrations/qualify.md">qualify↔attest integration contract</a>
+                </p>
+            </section>
+
             <section id="lab-setup" class="section" aria-labelledby="lab-heading">
                 <h2 id="lab-heading">Lab setup commands</h2>
                 <p class="section-intro">Identity attributes (<code>attest:lab-id</code> and <code>attest:admin-level</code>) are set during lab onboarding, not on training completion.</p>
