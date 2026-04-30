@@ -36,7 +36,8 @@ func New(cfg Config) (*DB, error) {
 
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("open database: %w", err)
+		// Never include dsn in the error — it contains the password.
+		return nil, fmt.Errorf("open postgres %s:%d/%s: %w", cfg.Host, cfg.Port, cfg.DBName, err)
 	}
 
 	// Configure connection pool
@@ -46,7 +47,8 @@ func New(cfg Config) (*DB, error) {
 
 	// Verify connection
 	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("ping database: %w", err)
+		// Never include dsn in the error — it contains the password.
+		return nil, fmt.Errorf("ping postgres %s:%d/%s: %w", cfg.Host, cfg.Port, cfg.DBName, err)
 	}
 
 	return &DB{db}, nil

@@ -36,7 +36,8 @@ var moduleTagMap = map[string]string{
 	"ferpa-basics":           "attest:ferpa-training",
 	"itar-export-control":    "attest:itar-training",
 	"data-classification":    "attest:data-class-training",
-	"nih-research-security":  "attest:research-security-training",
+	"nih-research-security":          "attest:research-security-training",
+	"countries-of-concern-awareness": "attest:coc-check-current",
 }
 
 // defaultTrainingExpiry is how long a training certification is valid.
@@ -749,6 +750,64 @@ func (s *Service) RegisterRoleARN(ctx context.Context, userID, roleARN string) e
 		userID, roleARN)
 	if err != nil {
 		return fmt.Errorf("register role ARN for user %s: %w", userID, err)
+	}
+	return nil
+}
+
+// RecordCountryCheck records a compliance officer's countries-of-concern check for a
+// researcher. Writes attest:country and attest:coc-check-current IAM tags to the
+// researcher's registered role, and stores the check details in the users table.
+//
+// countryCode must be a two-letter ISO 3166-1 alpha-2 code (e.g., "CN", "US").
+// performedBy is the compliance officer's user ID for audit purposes.
+func (s *Service) RecordCountryCheck(ctx context.Context, userID, countryCode, performedBy string) error {
+	if len(countryCode) != 2 {
+		return fmt.Errorf("country code must be exactly 2 letters (ISO 3166-1 alpha-2), got %q", countryCode)
+	}
+	upper := strings.ToUpper(countryCode)
+	for _, r := range upper {
+		if r < 'A' || r > 'Z' {
+			return fmt.Errorf("country code must be alphabetic letters only, got %q", countryCode)
+		}
+	}
+
+	// Update the users table with the affiliation country and check metadata.
+	now := time.Now().UTC()
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE users
+		SET institutional_affiliation_country = $2,
+		    affiliation_check_performed_at    = $3,
+		    affiliation_check_performed_by    = $4
+		WHERE id = $1`,
+		userID, upper, now, performedBy)
+	if err != nil {
+		return fmt.Errorf("record country check for user %s: %w", userID, err)
+	}
+
+	// Write IAM tags if a role is registered.
+	if s.iamTagger == nil {
+		return nil // no IAM tagger — DB record saved but tags not written
+	}
+	roleARN := s.getUserRoleARN(ctx, userID)
+	if roleARN == "" {
+		return fmt.Errorf("no IAM role ARN found for user %s: register the role ARN first", userID)
+	}
+	roleName := extractRoleName(roleARN)
+	if roleName == "" {
+		return fmt.Errorf("could not extract role name from ARN: %s", roleARN)
+	}
+
+	expiry := now.AddDate(1, 0, 0).Format(time.RFC3339)
+	_, err = s.iamTagger.TagRole(ctx, &iam.TagRoleInput{
+		RoleName: aws.String(roleName),
+		Tags: []iamtypes.Tag{
+			{Key: aws.String("attest:country"), Value: aws.String(upper)},
+			{Key: aws.String("attest:coc-check-current"), Value: aws.String("true")},
+			{Key: aws.String("attest:coc-check-expiry"), Value: aws.String(expiry)},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("tagging IAM role %s: %w", roleName, err)
 	}
 	return nil
 }

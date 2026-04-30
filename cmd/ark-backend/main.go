@@ -50,9 +50,9 @@ func main() {
 	dbCfg := database.Config{
 		Host:     getEnv("DB_HOST", "localhost"),
 		Port:     getEnvInt("DB_PORT", 5432),
-		User:     getEnv("DB_USER", "ark"),
-		Password: getEnv("DB_PASSWORD", "ark_dev_password"),
-		DBName:   getEnv("DB_NAME", "ark"),
+		User:     getEnv("DB_USER", "qualify"),
+		Password: getEnv("DB_PASSWORD", "qualify_dev_password"),
+		DBName:   getEnv("DB_NAME", "qualify"),
 		SSLMode:  getEnv("DB_SSLMODE", "disable"),
 	}
 

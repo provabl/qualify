@@ -1,4 +1,4 @@
--- Initial Ark Database Schema
+-- qualify Database Schema — initial
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

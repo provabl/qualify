@@ -8,12 +8,19 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/provabl/qualify/internal/database"
+	"github.com/provabl/qualify/internal/localaudit"
 	"github.com/provabl/qualify/internal/training"
 )
+
+// localAuditLogger returns a localaudit.Logger or nil if unavailable.
+func localAuditLogger() (*localaudit.Logger, error) {
+	return localaudit.New()
+}
 
 func init() {
 	rootCmd.AddCommand(labCmd())
@@ -27,6 +34,7 @@ func labCmd() *cobra.Command {
 	}
 	cmd.AddCommand(labSetupCmd())
 	cmd.AddCommand(labRegisterRoleCmd())
+	cmd.AddCommand(labRecordCheckCmd())
 	return cmd
 }
 
@@ -126,6 +134,74 @@ func runLabRegisterRole(userID, roleARN string) error {
 	return nil
 }
 
+func labRecordCheckCmd() *cobra.Command {
+	var userID, countryCode, performedBy, region string
+
+	cmd := &cobra.Command{
+		Use:   "record-check",
+		Short: "Record a countries-of-concern compliance check for a researcher",
+		Long: `Record that a compliance officer has performed the countries-of-concern
+check required by NIH NOT-OD-25-083 for a researcher.
+
+Writes three IAM role tags:
+  attest:country              = <ISO-2 country code>
+  attest:coc-check-current    = true
+  attest:coc-check-expiry     = <1 year from now>
+
+Also stores the check details in the qualify database for audit purposes.
+attest's Cedar PDP evaluates attest:country against the countries-of-concern
+list for NIH GDS access control and ITAR deemed-export enforcement.
+
+Examples:
+  # Record that alice's institution is in the US
+  qualify lab record-check --user alice@mru.edu --country US --performed-by compliance@mru.edu
+
+  # Record for a researcher affiliated with a designated country
+  qualify lab record-check --user bob@intl.edu --country CN --performed-by compliance@mru.edu`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runLabRecordCheck(userID, countryCode, performedBy, region)
+		},
+	}
+	cmd.Flags().StringVar(&userID, "user", "", "researcher user ID or email (required)")
+	cmd.Flags().StringVar(&countryCode, "country", "", "ISO 3166-1 alpha-2 country code of institutional affiliation (required)")
+	cmd.Flags().StringVar(&performedBy, "performed-by", "", "compliance officer performing the check (required)")
+	cmd.Flags().StringVar(&region, "region", "us-east-1", "AWS region for IAM tag writes")
+	_ = cmd.MarkFlagRequired("user")
+	_ = cmd.MarkFlagRequired("country")
+	_ = cmd.MarkFlagRequired("performed-by")
+	return cmd
+}
+
+func runLabRecordCheck(userID, countryCode, performedBy, region string) error {
+	db, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	alog, _ := localAuditLogger()
+
+	svc := training.NewServiceWithIAM(context.Background(), db, region)
+	if err := svc.RecordCountryCheck(context.Background(), userID, countryCode, performedBy); err != nil {
+		return fmt.Errorf("record country check: %w", err)
+	}
+
+	upper := strings.ToUpper(countryCode)
+	fmt.Printf("✓ attest:country              = %s\n", upper)
+	fmt.Printf("✓ attest:coc-check-current    = true\n")
+	fmt.Printf("✓ attest:coc-check-expiry     = <1 year from now>\n")
+	fmt.Printf("  Recorded for: %s  (performed by: %s)\n", userID, performedBy)
+	fmt.Printf("  Database: institutional_affiliation_country updated\n")
+
+	if alog != nil {
+		alog.Log("country_check_recorded", userID, "", map[string]any{
+			"country":      upper,
+			"performed_by": performedBy,
+		})
+	}
+	return nil
+}
+
 func openDB() (*database.DB, error) {
 	port := 5432
 	if p := os.Getenv("DB_PORT"); p != "" {
@@ -136,9 +212,9 @@ func openDB() (*database.DB, error) {
 	return database.New(database.Config{
 		Host:     getEnvDefault("DB_HOST", "localhost"),
 		Port:     port,
-		User:     getEnvDefault("DB_USER", "ark"),
+		User:     getEnvDefault("DB_USER", "qualify"),
 		Password: getEnvDefault("DB_PASSWORD", ""),
-		DBName:   getEnvDefault("DB_NAME", "ark"),
+		DBName:   getEnvDefault("DB_NAME", "qualify"),
 		SSLMode:  getEnvDefault("DB_SSLMODE", "disable"),
 	})
 }

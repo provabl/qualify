@@ -159,6 +159,7 @@ func runTrainRequired(attDir string, overrideFrameworks []string) error {
 	for _, fwID := range activeFrameworks {
 		modules, ok := frameworkModuleMap[fwID]
 		if !ok {
+			fmt.Fprintf(os.Stderr, "  warning: no training modules mapped for framework %q (check qualify version)\n", fwID)
 			continue
 		}
 		for _, m := range modules {
@@ -373,6 +374,15 @@ func runTrainStart(moduleID, userID string, restart bool) error {
 				fmt.Printf("\n  Answer [1-%d]: ", len(q.Options))
 				line, _ := reader.ReadString('\n')
 				ans := parseAnswer(strings.TrimSpace(line), len(q.Options))
+				if ans < 0 || ans >= len(q.Options) {
+					// Re-prompt once on invalid input; if still invalid, count as wrong.
+					fmt.Printf("  Enter a number from 1 to %d: ", len(q.Options))
+					line, _ = reader.ReadString('\n')
+					ans = parseAnswer(strings.TrimSpace(line), len(q.Options))
+					if ans < 0 || ans >= len(q.Options) {
+						ans = -1 // treat as wrong answer
+					}
+				}
 
 				if ans == q.Correct {
 					fmt.Printf("  ✓ Correct.\n")
@@ -477,6 +487,9 @@ var (
 	mdH3      = regexp.MustCompile(`(?m)^### (.+)$`)
 	mdNumList = regexp.MustCompile(`(?m)^(\d+)\. (.+)$`)
 	mdQuote   = regexp.MustCompile(`(?m)^> (.+)$`)
+	// stripANSI removes pre-existing ANSI/VT100 escape sequences from content
+	// before markdown processing, preventing injection from DB-sourced training text.
+	stripANSIRe = regexp.MustCompile(`\x1b(?:\[[0-9;]*[a-zA-Z]|\][^\x07]*\x07|[()][AB012]|[ABCDHIJKLMZ78])`)
 )
 
 // renderText converts markdown-lite content to formatted terminal text.
@@ -484,6 +497,9 @@ var (
 func renderText(s string) string {
 	// Unescape SQL-escaped single quotes.
 	s = strings.ReplaceAll(s, "''", "'")
+	// Strip any pre-existing ANSI/VT100 escape sequences from DB content before
+	// processing — prevents terminal injection via malicious training content.
+	s = stripANSIRe.ReplaceAllString(s, "")
 
 	// Determine terminal width for wrapping (default 78 if not a TTY).
 	wrapWidth := 78
@@ -575,12 +591,21 @@ func wrapText(s string, width int) string {
 	return strings.TrimRight(out.String(), "\n")
 }
 
-// parseAnswer parses "1"-"4" input to 0-based index. Returns -1 on invalid.
+// parseAnswer parses "1"-"N" input to a 0-based index. Returns -1 on invalid input.
+// Uses rune arithmetic (not byte) to avoid overflow when max > 9. Caps max at 9
+// since quiz options are always ≤ 9.
 func parseAnswer(s string, max int) int {
-	if len(s) != 1 || s[0] < '1' || s[0] > byte('0'+max) {
+	if max < 1 {
 		return -1
 	}
-	return int(s[0]-'0') - 1
+	if max > 9 {
+		max = 9 // defensive cap; quiz option counts never exceed 9
+	}
+	runes := []rune(s)
+	if len(runes) != 1 || runes[0] < '1' || runes[0] > rune('0'+max) {
+		return -1
+	}
+	return int(runes[0]-'0') - 1
 }
 
 // nextRequired suggests the next required module after completing moduleID.
