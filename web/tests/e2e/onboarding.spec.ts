@@ -9,7 +9,7 @@ test.describe('Onboarding Flow', () => {
 
     // Check if onboarding wizard appears
     // The wizard should appear for users who haven't completed onboarding
-    const wizardVisible = await page.locator('text=/Welcome to Ark Training|Get Started/i').isVisible({ timeout: 5000 })
+    const wizardVisible = await page.locator('text=/Welcome to qualify|Get Started/i').isVisible({ timeout: 5000 })
       .catch(() => false)
 
     if (wizardVisible) {
@@ -36,7 +36,7 @@ test.describe('Onboarding Flow', () => {
       await page.waitForTimeout(500)
 
       // Main content should be visible
-      await expect(page.locator('text=Welcome to Ark')).toBeVisible()
+      await expect(page.locator('text=Welcome to qualify')).toBeVisible()
     }
   })
 
@@ -45,7 +45,7 @@ test.describe('Onboarding Flow', () => {
     await page.waitForTimeout(1000)
 
     // Check if wizard is visible
-    const wizardVisible = await page.locator('text=/Welcome to Ark Training|Get Started/i').isVisible({ timeout: 5000 })
+    const wizardVisible = await page.locator('text=/Welcome to qualify|Get Started/i').isVisible({ timeout: 5000 })
       .catch(() => false)
 
     if (wizardVisible) {
@@ -76,7 +76,7 @@ test.describe('Onboarding Flow', () => {
     await page.waitForTimeout(1000)
 
     // Check if wizard is visible
-    const wizardVisible = await page.locator('text=/Welcome to Ark Training|Get Started/i').isVisible({ timeout: 5000 })
+    const wizardVisible = await page.locator('text=/Welcome to qualify|Get Started/i').isVisible({ timeout: 5000 })
       .catch(() => false)
 
     if (wizardVisible) {
@@ -96,7 +96,7 @@ test.describe('Onboarding Flow', () => {
           await page.waitForTimeout(1000)
 
           // Wizard should be hidden after completion
-          const stillVisible = await page.locator('text=/Welcome to Ark Training|Get Started/i').isVisible({ timeout: 2000 })
+          const stillVisible = await page.locator('text=/Welcome to qualify|Get Started/i').isVisible({ timeout: 2000 })
             .catch(() => false)
 
           expect(stillVisible).toBeFalsy()

@@ -7,13 +7,13 @@ export default function Home() {
   return (
     <SpaceBetween size="l">
       <Header variant="h1">
-        Welcome to Ark
+        Welcome to qualify
       </Header>
 
       <Container>
         <SpaceBetween size="l">
           <Box variant="p">
-            Ark is an AWS Research Kit designed for academic institutions, providing integrated AWS training and security tooling.
+            qualify provides compliance training and per-researcher access gating for AWS Secure Research Environments.
           </Box>
 
           <Box variant="h2">Key Features</Box>

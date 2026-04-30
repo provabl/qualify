@@ -37,7 +37,7 @@ export default function OnboardingWizard({
       content: (
         <SpaceBetween size="m">
           <Box variant="h2" textAlign="center">
-            AWS Research Kit
+            qualify Training
           </Box>
           <Box variant="p" textAlign="center" fontSize="heading-m" padding={{ bottom: 'm' }}>
             Safe, Controlled AWS Access for Research Environments

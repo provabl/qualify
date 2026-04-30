@@ -5,10 +5,10 @@ test.describe('Home Page', () => {
     await page.goto('/')
 
     // Check that the page title contains expected text
-    await expect(page).toHaveTitle(/Ark/)
+    await expect(page).toHaveTitle(/qualify/)
 
     // Check that the main header is present
-    await expect(page.locator('text=Welcome to Ark')).toBeVisible()
+    await expect(page.locator('text=Welcome to qualify')).toBeVisible()
   })
 
   test('should have navigation links', async ({ page }) => {
@@ -42,7 +42,7 @@ test.describe('Home Page', () => {
     // Navigate back to Home
     await page.click('text=Home')
     await expect(page).toHaveURL('/')
-    await expect(page.locator('text=Welcome to Ark')).toBeVisible()
+    await expect(page.locator('text=Welcome to qualify')).toBeVisible()
   })
 
   test('should display agent status', async ({ page }) => {

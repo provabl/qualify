@@ -147,6 +147,7 @@ jobs:
 
       - name: Start backend server
         env:
+          PORT: "8081"
           DB_HOST: localhost
           DB_PORT: "5432"
           DB_USER: postgres
@@ -156,8 +157,8 @@ jobs:
         run: |
           ./bin/qualify-backend &
           echo $! > backend.pid
-          # Wait for backend to be ready
-          timeout 30 bash -c 'until curl -f http://localhost:8080/health; do sleep 1; done'
+          # Wait for backend to be ready (frontend hardcodes port 8081)
+          timeout 30 bash -c 'until curl -f http://localhost:8081/health; do sleep 1; done'
 
       - name: Run E2E tests
         working-directory: web

@@ -82,10 +82,10 @@ export default function App() {
         <TopNavigation
           identity={{
             href: '/',
-            title: 'Ark',
+            title: 'qualify',
             logo: {
               src: '/vite.svg',
-              alt: 'Ark'
+              alt: 'qualify'
             }
           }}
           utilities={[]}
