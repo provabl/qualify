@@ -149,9 +149,11 @@ func setupRouter(auditSvc *audit.Service, trainingSvc *training.Service) http.Ha
 	// CORS configuration
 	r.Use(cors.Handler(cors.Options{
 		// Restrict to known frontend ports — no wildcard port matching.
+		// Note: Go HTTP clients (qualify agent on :8737) bypass CORS entirely —
+		// CORS is enforced only by browsers. This list gates web dashboard access only.
 		AllowedOrigins: []string{
-			"http://localhost:5173",  // Vite dev server
-			"http://localhost:5174",  // Playwright test server
+			"http://localhost:5173", // Vite dev server
+			"http://localhost:5174", // Playwright test server
 			"http://127.0.0.1:5173",
 			"http://127.0.0.1:5174",
 		},

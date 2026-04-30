@@ -31,7 +31,6 @@ func (m *mockTagger) TagRole(_ context.Context, params *iam.TagRoleInput, _ ...f
 	return &iam.TagRoleOutput{}, nil
 }
 
-
 func newMockService(t *testing.T) (*Service, sqlmock.Sqlmock) {
 	t.Helper()
 	db, mock, err := sqlmock.New()
@@ -179,10 +178,6 @@ func TestModuleTagMap_Immutable(t *testing.T) {
 		t.Errorf("TagForModule inconsistent or mutated: %q vs %q", v1, v2)
 	}
 }
-
-// ── Ensure mockTagger implements iamTagWriter ──────────────────────────────
-
-var _ iamTagWriter = (*mockTagger)(nil)
 
 // Compile-time check that mockTagger satisfies iamTagWriter.
 var _ iamTagWriter = (*mockTagger)(nil)
