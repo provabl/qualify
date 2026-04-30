@@ -7,48 +7,35 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
-### Added
-- `qualify lab setup` — writes `attest:lab-id` and `attest:admin-level` IAM tags during lab onboarding
-- `qualify lab register-role` — registers a researcher's IAM role ARN for tag writing
-- `SetIdentityTags()` and `RegisterRoleARN()` on training service
+## [0.1.0] - 2026-04-30
 
-### Changed
-- CLI description: "Ark consists of three components" → "qualify consists of three components"
-- Default config path: `~/.ark/config.yml` → `~/.qualify/config.yml`
-
-## [0.2.0] - 2026-04-30
+First release — Foundation milestone complete.
 
 ### Added
-- SLSA Level 2 release workflow (`actions/attest-build-provenance` + cosign keyless + SBOM via syft)
-- SPDX-FileCopyrightText headers on all Go source files (2026 Scott Friedman)
-- `LICENSE` (Apache 2.0), `LICENSES/Apache-2.0.txt`, `REUSE.toml` for supply chain tooling
-- `NOTICE` file
-- Migration 000004: compliance training module seed data — 7 modules with full content:
-  `cui-fundamentals`, `hipaa-privacy-security`, `security-awareness`, `ferpa-basics`,
-  `itar-export-control`, `data-classification`, `nih-research-security`
-- `qualify.provabl.dev` documentation site
-- Provabl org transfer: module path → `github.com/provabl/qualify`
 
-### Changed
-- CLI root command: `Use: "qualify"` (was `"ark"` with qualify alias)
-- Fixed stale "Ark consists of three components" CLI help text
+- **`qualify train start <module>`**: interactive CLI training loop with section-by-section presentation, markdown-lite rendering (ANSI bold/headers/blockquotes on TTY, plain text in CI), interactive quiz, retry on fail. Progress saved to `~/.qualify/progress/` between sessions.
+- **`qualify train required`**: reads `.attest/sre.yaml` for active compliance frameworks and shows required modules. Works offline.
+- **`qualify train status`**: shows completion, expiry, and unlock context per module (what AWS access each training gates).
+- **`qualify train certificate <module>`**: displays or re-displays a completion certificate (box-drawing format). Certificates auto-issued on pass and saved to `~/.qualify/certificates/`.
+- **`qualify lab setup`**: assigns researcher to a lab; writes `attest:lab-id` and `attest:admin-level` IAM tags.
+- **`qualify lab register-role`**: stores IAM role ARN for tag writes.
+- **`qualify lab record-check --user --country --performed-by`**: records a countries-of-concern compliance check. Writes `attest:country`, `attest:coc-check-current`, `attest:coc-check-expiry` IAM tags; stores check metadata in DB.
+- **`qualify onboard`**: guided new-user onboarding.
+- **`internal/training/tags.go`**: all `attest:*` IAM tag key constants and `ModuleTagMap` — single authoritative source shared between service (writer) and CLI (display). Schema version 1.
+- **`internal/localaudit/`**: JSONL audit log at `~/.qualify/audit.log`. Records all training events with UTC timestamps. Always available without backend.
+- **8 training modules**: security-awareness, data-classification, cui-fundamentals, hipaa-privacy-security, ferpa-basics, itar-export-control, nih-research-security (NOT-OD-26-017), countries-of-concern-awareness (NOT-OD-25-083). Each: 3 sections + 5-question quiz, 80% passing score.
+- **Migration 000008**: adds `institutional_affiliation_country`, `affiliation_check_performed_at/by` to users table.
+- **Backend** (`cmd/ark-backend`): slog JSON structured logging, request ID middleware, `/health`, `/ping`, training and dashboard API endpoints.
+- **Docker Compose**: local dev environment with PostgreSQL (`make docker-up`).
+- **CI**: `test.yml` (backend + frontend), `check.yml` (fast pre-commit), `release.yml` (SLSA L2).
+- **`README.md`** + **`CONTRIBUTING.md`**: complete project documentation.
 
-## [0.1.0] - 2026-01-01
+### Security
 
-### Added
-- Core training service (`internal/training/service.go`)
-- IAM tag writing on training completion: maps 7 module IDs to `attest:*` IAM tags
-- `moduleTagMap`: cui-fundamentals, hipaa-privacy-security, security-awareness,
-  ferpa-basics, itar-export-control, data-classification, nih-research-security
-- Default training expiry: 365 days (RFC3339 timestamp written per module)
-- Backend HTTP handlers for training module completion
-- Quiz evaluation and progress tracking
-- Dashboard statistics endpoint
-- Policy check enforcement (training gate)
-- Database schema with migrations (PostgreSQL)
-- Docker Compose for local development
-- Cobra CLI with agent, config, credentials, s3, completion subcommands
+- `parseAnswer`: rune arithmetic prevents byte overflow for option counts > 9.
+- `renderText`: strips pre-existing ANSI escape sequences from DB content before processing.
+- `database.New`: error messages never include the DSN (which contains the password).
+- Probe interface (ground): validated against `^[a-z0-9][a-z0-9-]{0,62}$`; relative paths rejected.
 
-[Unreleased]: https://github.com/provabl/qualify/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/provabl/qualify/releases/tag/v0.2.0
+[Unreleased]: https://github.com/provabl/qualify/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/provabl/qualify/releases/tag/v0.1.0

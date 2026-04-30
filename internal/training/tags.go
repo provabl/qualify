@@ -16,27 +16,28 @@ package training
 // See: https://github.com/provabl/qualify/issues/32
 //
 // Key naming convention:
-//   attest:<capability>            boolean flag ("true")
-//   attest:<capability>-expiry     RFC3339 timestamp of when the flag expires
+//
+//	attest:<capability>            boolean flag ("true")
+//	attest:<capability>-expiry     RFC3339 timestamp of when the flag expires
 //
 // Training completion tags (written by svc.CompleteModule):
 const (
-	TagCUITraining                = "attest:cui-training"
-	TagCUITrainingExpiry          = "attest:cui-training-expiry"
-	TagHIPAATraining              = "attest:hipaa-training"
-	TagHIPAATrainingExpiry        = "attest:hipaa-training-expiry"
-	TagAwarenessTraining          = "attest:awareness-training"
-	TagAwarenessTrainingExpiry    = "attest:awareness-training-expiry"
-	TagFERPATraining              = "attest:ferpa-training"
-	TagFERPATrainingExpiry        = "attest:ferpa-training-expiry"
-	TagITARTraining               = "attest:itar-training"
-	TagITARTrainingExpiry         = "attest:itar-training-expiry"
-	TagDataClassTraining          = "attest:data-class-training"
-	TagDataClassTrainingExpiry    = "attest:data-class-training-expiry"
-	TagResearchSecurityTraining   = "attest:research-security-training"
-	TagResearchSecurityExpiry     = "attest:research-security-training-expiry"
-	TagCOCCheckCurrent            = "attest:coc-check-current"
-	TagCOCCheckExpiry             = "attest:coc-check-expiry"
+	TagCUITraining              = "attest:cui-training"
+	TagCUITrainingExpiry        = "attest:cui-training-expiry"
+	TagHIPAATraining            = "attest:hipaa-training"
+	TagHIPAATrainingExpiry      = "attest:hipaa-training-expiry"
+	TagAwarenessTraining        = "attest:awareness-training"
+	TagAwarenessTrainingExpiry  = "attest:awareness-training-expiry"
+	TagFERPATraining            = "attest:ferpa-training"
+	TagFERPATrainingExpiry      = "attest:ferpa-training-expiry"
+	TagITARTraining             = "attest:itar-training"
+	TagITARTrainingExpiry       = "attest:itar-training-expiry"
+	TagDataClassTraining        = "attest:data-class-training"
+	TagDataClassTrainingExpiry  = "attest:data-class-training-expiry"
+	TagResearchSecurityTraining = "attest:research-security-training"
+	TagResearchSecurityExpiry   = "attest:research-security-training-expiry"
+	TagCOCCheckCurrent          = "attest:coc-check-current"
+	TagCOCCheckExpiry           = "attest:coc-check-expiry"
 )
 
 // Countries-of-concern check tags (written by svc.RecordCountryCheck):
