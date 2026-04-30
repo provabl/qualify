@@ -310,5 +310,3 @@ func runTrainList() error {
 	}
 	return rows.Err()
 }
-
-
