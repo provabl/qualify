@@ -194,7 +194,7 @@ describe('Dashboard Component', () => {
       expect(screen.getByText('AWS Operations')).toBeInTheDocument()
     })
 
-    expect(screen.getByText('No operations configured')).toBeInTheDocument()
+    expect(screen.getByText(/Complete training modules to unlock AWS operations/i)).toBeInTheDocument()
   })
 
   it('navigates to training when View All Training clicked', async () => {
@@ -218,7 +218,7 @@ describe('Dashboard Component', () => {
     renderDashboard()
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to load dashboard')).toBeInTheDocument()
+      expect(screen.getByText('Could not connect to qualify backend')).toBeInTheDocument()
     })
 
     expect(screen.getByText('Network error')).toBeInTheDocument()
