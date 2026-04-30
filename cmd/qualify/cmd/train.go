@@ -650,18 +650,10 @@ func loadProgress(path string) (*trainProgress, error) {
 	return &p, json.Unmarshal(data, &p)
 }
 
-// moduleTagMap is a local copy so trainStartCmd can show which tag was written.
-// The authoritative map is in internal/training/service.go.
-var moduleTagMap = map[string]string{
-	"cui-fundamentals":               "attest:cui-training",
-	"hipaa-privacy-security":         "attest:hipaa-training",
-	"security-awareness":             "attest:awareness-training",
-	"ferpa-basics":                   "attest:ferpa-training",
-	"itar-export-control":            "attest:itar-training",
-	"data-classification":            "attest:data-class-training",
-	"nih-research-security":          "attest:research-security-training",
-	"countries-of-concern-awareness": "attest:coc-check-current",
-}
+// moduleTagMap is an alias for training.ModuleTagMap — the single canonical
+// source defined in internal/training/tags.go. References here keep the
+// variable name stable so existing callers in this file don't need changing.
+var moduleTagMap = training.ModuleTagMap
 
 // trainStatusCmd shows the current training completion status.
 func trainStatusCmd() *cobra.Command {

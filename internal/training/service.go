@@ -26,19 +26,8 @@ type iamTagWriter interface {
 	TagRole(ctx context.Context, params *iam.TagRoleInput, optFns ...func(*iam.Options)) (*iam.TagRoleOutput, error)
 }
 
-// moduleTagMap maps qualify training module IDs to attest:* IAM tag keys.
-// When a researcher completes a module, qualify writes these tags to their IAM role
-// so attest's principal resolver can evaluate them in Cedar policies.
-var moduleTagMap = map[string]string{
-	"cui-fundamentals":       "attest:cui-training",
-	"hipaa-privacy-security": "attest:hipaa-training",
-	"security-awareness":     "attest:awareness-training",
-	"ferpa-basics":           "attest:ferpa-training",
-	"itar-export-control":    "attest:itar-training",
-	"data-classification":    "attest:data-class-training",
-	"nih-research-security":          "attest:research-security-training",
-	"countries-of-concern-awareness": "attest:coc-check-current",
-}
+// ModuleTagMap is defined in tags.go — the authoritative source for all
+// qualify module ID → attest:* IAM tag key mappings.
 
 // defaultTrainingExpiry is how long a training certification is valid.
 const defaultTrainingExpiry = 365 * 24 * time.Hour
@@ -381,7 +370,7 @@ func (s *Service) getUserRoleARN(ctx context.Context, userID string) string {
 // writeAttestTags writes attest:* IAM role tags when training is completed.
 // Enables attest's principal resolver to read training status for Cedar evaluation.
 func (s *Service) writeAttestTags(ctx context.Context, roleARN, moduleID string, expiresAt time.Time) error {
-	tagKey, ok := moduleTagMap[moduleID]
+	tagKey, ok := ModuleTagMap[moduleID]
 	if !ok {
 		return nil // no attest mapping for this module
 	}
@@ -391,9 +380,14 @@ func (s *Service) writeAttestTags(ctx context.Context, roleARN, moduleID string,
 		return fmt.Errorf("could not extract role name from ARN: %s", roleARN)
 	}
 
+	expiryKey := ModuleExpiryTag(tagKey)
 	tags := []iamtypes.Tag{
 		{Key: aws.String(tagKey), Value: aws.String("true")},
-		{Key: aws.String(tagKey + "-expiry"), Value: aws.String(expiresAt.Format(time.RFC3339))},
+	}
+	if expiryKey != "" {
+		tags = append(tags, iamtypes.Tag{
+			Key: aws.String(expiryKey), Value: aws.String(expiresAt.Format(time.RFC3339)),
+		})
 	}
 
 	_, err := s.iamTagger.TagRole(ctx, &iam.TagRoleInput{
