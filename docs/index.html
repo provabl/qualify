@@ -307,11 +307,13 @@ attest:admin-level               = "none" | "env" | "sre"</code></pre>
 
                 <h3 style="font-size:.9rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin:2rem 0 .875rem;">Core commands</h3>
                 <div class="code-block">
-                    <pre><code><span class="accent-cmd">qualify</span> train list                    <span class="cm"># all available modules</span>
-<span class="accent-cmd">qualify</span> train start &lt;module-id&gt;        <span class="cm"># begin or resume a module</span>
-<span class="accent-cmd">qualify</span> train status                   <span class="cm"># current training state</span>
-<span class="accent-cmd">qualify</span> train status --user &lt;email&gt;   <span class="cm"># admin: check any user</span>
-<span class="accent-cmd">qualify</span> lab setup --user &lt;email&gt; --lab-id &lt;id&gt;   <span class="cm"># assign to lab</span>
+                    <pre><code><span class="accent-cmd">qualify</span> train required                         <span class="cm"># modules required for active attest frameworks</span>
+<span class="accent-cmd">qualify</span> train required --framework hipaa nih-gds <span class="cm"># check specific frameworks offline</span>
+<span class="accent-cmd">qualify</span> train list                             <span class="cm"># all available modules</span>
+<span class="accent-cmd">qualify</span> train start &lt;module-id&gt;               <span class="cm"># begin or resume a module</span>
+<span class="accent-cmd">qualify</span> train status                           <span class="cm"># current training completion state</span>
+<span class="accent-cmd">qualify</span> train status --user &lt;email&gt;           <span class="cm"># admin: check any user</span>
+<span class="accent-cmd">qualify</span> lab setup --user &lt;email&gt; --lab-id &lt;id&gt;   <span class="cm"># assign user to lab</span>
 <span class="accent-cmd">qualify</span> lab register-role --user &lt;email&gt; --role-arn &lt;arn&gt;</code></pre>
                 </div>
 
