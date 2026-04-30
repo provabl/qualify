@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/spf13/cobra"
@@ -36,6 +37,7 @@ func trainCmd() *cobra.Command {
 	cmd.AddCommand(trainRequiredCmd())
 	cmd.AddCommand(trainStartCmd())
 	cmd.AddCommand(trainStatusCmd())
+	cmd.AddCommand(trainCertificateCmd())
 	cmd.AddCommand(trainListCmd())
 	return cmd
 }
@@ -421,6 +423,11 @@ func runTrainStart(moduleID, userID string, restart bool) error {
 				// Remove progress file — module complete.
 				_ = os.Remove(progressPath)
 
+				// Issue completion certificate.
+				completedAt := time.Now().UTC().Format(time.RFC3339)
+				expiresAt := time.Now().UTC().AddDate(1, 0, 0).Format(time.RFC3339)
+				issueCertificate(mod.Title, moduleID, userID, score, completedAt, expiresAt)
+
 				// Suggest next module.
 				if next := nextRequired(moduleID); next != "" {
 					fmt.Printf("\n  Next up: qualify train start %s\n", next)
@@ -763,4 +770,136 @@ func runTrainList() error {
 		fmt.Printf("    %-38s  %s (%d min)\n", name, difficulty, mins)
 	}
 	return rows.Err()
+}
+
+// trainCertificateCmd displays or saves a completion certificate.
+func trainCertificateCmd() *cobra.Command {
+	var userID string
+
+	cmd := &cobra.Command{
+		Use:   "certificate <module-id>",
+		Short: "Display completion certificate for a training module",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runTrainCertificate(args[0], userID)
+		},
+	}
+	cmd.Flags().StringVar(&userID, "user", "", "user ID or email")
+	return cmd
+}
+
+func runTrainCertificate(moduleID, userID string) error {
+	db, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	var title string
+	var score int
+	var completedAt, expiresAt string
+	err = db.QueryRowContext(ctx, `
+		SELECT m.title, p.score, p.completed_at, p.expires_at
+		FROM training_modules m
+		JOIN training_progress p ON p.module_id = m.name
+		WHERE m.name = $1 AND p.status = 'completed' AND ($2 = '' OR p.user_id = $2)
+		ORDER BY p.completed_at DESC LIMIT 1`,
+		moduleID, userID,
+	).Scan(&title, &score, &completedAt, &expiresAt)
+	if err != nil {
+		return fmt.Errorf("no completion record for %q — run 'qualify train start %s' first", moduleID, moduleID)
+	}
+	printCertificate(title, moduleID, userID, score, completedAt, expiresAt)
+	return nil
+}
+
+// issueCertificate prints and saves the certificate right after passing a module.
+func issueCertificate(title, moduleID, userID string, score int, completedAt, expiresAt string) {
+	fmt.Println()
+	printCertificate(title, moduleID, userID, score, completedAt, expiresAt)
+	if err := saveCertificate(title, moduleID, userID, score, completedAt, expiresAt); err == nil {
+		home, _ := os.UserHomeDir()
+		fmt.Printf("  Certificate saved: %s/.qualify/certificates/%s.txt\n",
+			home, moduleID+"-"+completedAt[:10])
+	}
+}
+
+func printCertificate(title, moduleID, userID string, score int, completedAt, expiresAt string) {
+	width := 68
+	if isTTY {
+		if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && w > 40 {
+			width = min(w-4, 72)
+		}
+	}
+	inner := width - 2
+	bar := strings.Repeat("─", inner)
+	blank := "│" + strings.Repeat(" ", inner) + "│"
+	pad := func(s string) string {
+		sp := inner - len(s)
+		if sp < 0 {
+			sp = 0
+		}
+		return "│ " + s + strings.Repeat(" ", sp-1) + "│"
+	}
+	heading := "COMPLETION CERTIFICATE"
+	hp := (inner - len(heading)) / 2
+	headLine := "│" + strings.Repeat(" ", hp) + heading + strings.Repeat(" ", inner-hp-len(heading)) + "│"
+
+	fmt.Printf("┌%s┐\n", bar)
+	fmt.Println(headLine)
+	fmt.Println(blank)
+	fmt.Println(pad("  This certifies that"))
+	fmt.Println(blank)
+	subject := userID
+	if subject == "" {
+		subject = "the user"
+	}
+	fmt.Println(pad("    " + subject))
+	fmt.Println(blank)
+	fmt.Println(pad("  has successfully completed:"))
+	fmt.Println(blank)
+	fmt.Println(pad("    " + title))
+	fmt.Println(blank)
+	fmt.Printf("├%s┤\n", bar)
+	fmt.Println(pad(fmt.Sprintf("  Score:       %d%%", score)))
+	fmt.Println(pad(fmt.Sprintf("  Completed:   %s", completedAt[:10])))
+	if expiresAt != "" {
+		fmt.Println(pad(fmt.Sprintf("  Valid until: %s", expiresAt[:10])))
+	}
+	fmt.Println(pad(fmt.Sprintf("  Module ID:   %s", moduleID)))
+	if u := moduleUnlocks(moduleID); u != "" {
+		fmt.Println(blank)
+		fmt.Println(pad("  Unlocks: " + u))
+	}
+	fmt.Printf("└%s┘\n", bar)
+}
+
+func saveCertificate(title, moduleID, userID string, score int, completedAt, expiresAt string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	dir := filepath.Join(home, ".qualify", "certificates")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	lines := []string{
+		"COMPLETION CERTIFICATE",
+		"",
+		"Module:      " + title,
+		"Module ID:   " + moduleID,
+		"User:        " + userID,
+		"Score:       " + fmt.Sprintf("%d%%", score),
+		"Completed:   " + completedAt[:10],
+	}
+	if expiresAt != "" {
+		lines = append(lines, "Valid until: "+expiresAt[:10])
+	}
+	if u := moduleUnlocks(moduleID); u != "" {
+		lines = append(lines, "", "Unlocks: "+u)
+	}
+	lines = append(lines, "", "Issued by qualify — https://qualify.provabl.dev")
+	filename := filepath.Join(dir, moduleID+"-"+completedAt[:10]+".txt")
+	return os.WriteFile(filename, []byte(strings.Join(lines, "\n")+"\n"), 0o600)
 }
