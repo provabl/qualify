@@ -27,19 +27,8 @@ jobs:
       - name: Install tools
         run: make install-tools
 
-      - name: Run gofmt
-        run: |
-          if [ "$(gofmt -l . | wc -l)" -gt 0 ]; then
-            echo "Code is not formatted. Run 'gofmt -w .'"
-            gofmt -l .
-            exit 1
-          fi
-
-      - name: Run go vet
-        run: go vet ./...
-
-      - name: Run staticcheck
-        run: staticcheck ./...
+      - name: Run checks (fmt + vet + staticcheck)
+        run: make check
 
       - name: Run tests
         run: make test
