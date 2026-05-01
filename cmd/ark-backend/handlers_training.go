@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/provabl/qualify/internal/auth"
 	"github.com/provabl/qualify/internal/training"
 )
 
@@ -30,33 +31,25 @@ func handleCheckPolicy(trainingSvc *training.Service) http.HandlerFunc {
 			return
 		}
 
-		// Validate required fields
-		if req.UserID == "" || req.Action == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{
-				"error": "user_id and action are required",
-			})
+		// Always use the authenticated user from context — never trust body user_id.
+		userID := auth.GetUserID(r.Context())
+		if userID == "" {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
+			return
+		}
+		if req.Action == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "action is required"})
 			return
 		}
 
-		// Check training gate
-		decision, err := trainingSvc.CheckTrainingGate(r.Context(), req.UserID, req.Action)
+		decision, err := trainingSvc.CheckTrainingGate(r.Context(), userID, req.Action)
 		if err != nil {
-			slog.Error("failed to check training gate",
-				"error", err,
-				"user_id", req.UserID,
-				"action", req.Action,
-			)
-			writeJSON(w, http.StatusInternalServerError, map[string]string{
-				"error": "Failed to evaluate policy",
-			})
+			slog.Error("failed to check training gate", "error", err, "user_id", userID, "action", req.Action)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to evaluate policy"})
 			return
 		}
 
-		slog.Info("policy evaluated",
-			"user_id", req.UserID,
-			"action", req.Action,
-			"decision", decision.Action,
-		)
+		slog.Info("policy evaluated", "user_id", userID, "action", req.Action, "decision", decision.Action)
 
 		writeJSON(w, http.StatusOK, decision)
 	}
@@ -65,11 +58,10 @@ func handleCheckPolicy(trainingSvc *training.Service) http.HandlerFunc {
 // handleGetUserProgress retrieves training progress for a user
 func handleGetUserProgress(trainingSvc *training.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID := chi.URLParam(r, "user_id")
+		// Route is /api/training/progress — user comes from JWT context
+		userID := auth.GetUserID(r.Context())
 		if userID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{
-				"error": "user_id parameter required",
-			})
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
 			return
 		}
 
@@ -148,30 +140,17 @@ func handleStartModule(trainingSvc *training.Service) http.HandlerFunc {
 			return
 		}
 
-		var req struct {
-			UserID string `json:"user_id"`
-		}
-
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			slog.Error("failed to decode start module request", "error", err)
-			writeJSON(w, http.StatusBadRequest, map[string]string{
-				"error": "Invalid request body",
-			})
+		// User comes from JWT context — body user_id is ignored for security
+		userID := auth.GetUserID(r.Context())
+		if userID == "" {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
 			return
 		}
 
-		if req.UserID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{
-				"error": "user_id is required",
-			})
-			return
-		}
-
-		err := trainingSvc.StartModule(r.Context(), req.UserID, moduleID)
+		err := trainingSvc.StartModule(r.Context(), userID, moduleID)
 		if err != nil {
 			slog.Error("failed to start module",
 				"error", err,
-				"user_id", req.UserID,
 				"module_id", moduleID,
 			)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{
@@ -180,17 +159,9 @@ func handleStartModule(trainingSvc *training.Service) http.HandlerFunc {
 			return
 		}
 
-		slog.Info("module started",
-			"user_id", req.UserID,
-			"module_id", moduleID,
-		)
+		slog.Info("module started", "user_id", userID, "module_id", moduleID)
 
-		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"status":    "started",
-			"message":   "Module started successfully",
-			"user_id":   req.UserID,
-			"module_id": moduleID,
-		})
+		writeJSON(w, http.StatusOK, map[string]interface{}{"status": "started", "user_id": userID, "module_id": moduleID})
 	}
 }
 
@@ -219,18 +190,16 @@ func handleCompleteModule(trainingSvc *training.Service) http.HandlerFunc {
 			return
 		}
 
-		if req.UserID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{
-				"error": "user_id is required",
-			})
+		userID := auth.GetUserID(r.Context())
+		if userID == "" {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
 			return
 		}
 
-		err := trainingSvc.CompleteModule(r.Context(), req.UserID, moduleID, req.Score)
+		err := trainingSvc.CompleteModule(r.Context(), userID, moduleID, req.Score)
 		if err != nil {
 			slog.Error("failed to complete module",
 				"error", err,
-				"user_id", req.UserID,
 				"module_id", moduleID,
 			)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{
@@ -239,18 +208,12 @@ func handleCompleteModule(trainingSvc *training.Service) http.HandlerFunc {
 			return
 		}
 
-		slog.Info("module completed",
-			"user_id", req.UserID,
-			"module_id", moduleID,
-			"score", req.Score,
-		)
+		slog.Info("module completed", "user_id", userID, "module_id", moduleID, "score", req.Score)
 
 		writeJSON(w, http.StatusOK, map[string]interface{}{
 			"status":    "completed",
 			"message":   "Module completed successfully",
-			"user_id":   req.UserID,
-			"module_id": moduleID,
-		})
+			"user_id": userID, "module_id": moduleID})
 	}
 }
 
@@ -274,10 +237,10 @@ func handleSubmitQuiz(trainingSvc *training.Service) http.HandlerFunc {
 			return
 		}
 
+		// Override body user_id with authenticated user from context.
+		submission.UserID = auth.GetUserID(r.Context())
 		if submission.UserID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{
-				"error": "user_id is required",
-			})
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
 			return
 		}
 
@@ -314,11 +277,9 @@ func handleSubmitQuiz(trainingSvc *training.Service) http.HandlerFunc {
 // handleGetUserActivity retrieves user training activity log
 func handleGetUserActivity(trainingSvc *training.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID := chi.URLParam(r, "user_id")
+		userID := auth.GetUserID(r.Context())
 		if userID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{
-				"error": "user_id parameter required",
-			})
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
 			return
 		}
 

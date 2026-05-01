@@ -12,8 +12,6 @@ import { agentService } from '@/services/agent'
 import { cn } from '@/lib/utils'
 import type { TrainingModule as TrainingModuleType } from '@/types/api'
 
-const USER_ID = '00000000-0000-0000-0000-000000000001'
-
 const navItems = [
   { href: '/',          label: 'Home',     icon: HomeIcon },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -23,24 +21,44 @@ const navItems = [
 
 export default function App() {
   const location = useLocation()
+  const [userId, setUserId] = useState<string>('')
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [trainingModules, setTrainingModules] = useState<TrainingModuleType[]>([])
   const [onboardingChecked, setOnboardingChecked] = useState(false)
 
   useEffect(() => {
-    checkOnboardingStatus()
+    initAuth()
   }, [])
 
-  async function checkOnboardingStatus() {
+  async function initAuth() {
     try {
+      // Acquire a token if we don't have one.
+      // In dev mode the backend provides /api/auth/dev-token; in production
+      // this would be replaced with an OIDC redirect flow.
+      if (!agentService.getToken()) {
+        const res = await fetch(
+          `${import.meta.env.VITE_BACKEND_URL ?? 'http://127.0.0.1:8081'}/api/auth/dev-token`
+        )
+        if (res.ok) {
+          const data = await res.json()
+          agentService.setToken(data.token)
+          setUserId(data.user_id)
+        }
+      } else {
+        // Resolve current user from existing token.
+        const me = await agentService.getMe()
+        setUserId(me.user_id)
+      }
+
+      // Load onboarding state and training modules.
       const [profile, modules] = await Promise.all([
-        agentService.getUserProfile(USER_ID),
-        agentService.listTrainingModules()
+        agentService.getUserProfile(),
+        agentService.listTrainingModules(),
       ])
       setTrainingModules(modules)
       if (!profile.preferences.has_completed_onboarding) setShowOnboarding(true)
     } catch {
-      // backend not running — continue without onboarding
+      // Backend not running — continue without auth/onboarding.
     } finally {
       setOnboardingChecked(true)
     }
@@ -80,9 +98,14 @@ export default function App() {
           })}
         </nav>
 
-        {/* Agent status at bottom */}
-        <div className="border-t border-slate-200 p-3">
+        {/* Agent status + user at bottom */}
+        <div className="border-t border-slate-200 p-3 space-y-1">
           <AgentStatus />
+          {userId && (
+            <p className="text-xs text-slate-400 truncate" title={userId}>
+              {userId.substring(0, 8)}…
+            </p>
+          )}
         </div>
       </aside>
 
@@ -90,7 +113,7 @@ export default function App() {
       <main className="flex-1 overflow-auto">
         <Routes>
           <Route path="/"                      element={<Home />} />
-          <Route path="/dashboard"             element={<Dashboard />} />
+          <Route path="/dashboard"             element={<Dashboard userId={userId} />} />
           <Route path="/s3"                    element={<S3 />} />
           <Route path="/training"              element={<Training />} />
           <Route path="/training/:moduleName"  element={<TrainingModule />} />
@@ -100,7 +123,7 @@ export default function App() {
       {onboardingChecked && (
         <OnboardingWizard
           visible={showOnboarding}
-          userId={USER_ID}
+          userId={userId}
           trainingModules={trainingModules}
           onDismiss={() => setShowOnboarding(false)}
           onComplete={() => setShowOnboarding(false)}

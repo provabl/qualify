@@ -7,27 +7,22 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/provabl/qualify/internal/auth"
 	"github.com/provabl/qualify/internal/training"
 )
 
-// handleGetDashboardStats retrieves dashboard statistics for a user
+// handleGetDashboardStats retrieves dashboard statistics for the authenticated user.
 func handleGetDashboardStats(trainingSvc *training.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID := chi.URLParam(r, "user_id")
+		userID := auth.GetUserID(r.Context())
 		if userID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{
-				"error": "user_id parameter required",
-			})
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
 			return
 		}
 
 		stats, err := trainingSvc.GetDashboardStats(r.Context(), userID)
 		if err != nil {
-			slog.Error("failed to get dashboard stats",
-				"error", err,
-				"user_id", userID,
-			)
+			slog.Error("failed to get dashboard stats", "error", err, "user_id", userID)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{
 				"error": "Failed to retrieve dashboard statistics",
 			})

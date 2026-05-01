@@ -26,6 +26,21 @@ class AgentService {
     this.backendUrl = backendUrl
   }
 
+  /** Returns the stored JWT from sessionStorage, or null if not authenticated. */
+  getToken(): string | null {
+    return sessionStorage.getItem('qualify_token')
+  }
+
+  /** Stores a JWT in sessionStorage. */
+  setToken(token: string): void {
+    sessionStorage.setItem('qualify_token', token)
+  }
+
+  /** Clears the stored JWT. */
+  clearToken(): void {
+    sessionStorage.removeItem('qualify_token')
+  }
+
   private async request<T>(
     endpoint: string,
     options?: RequestInit,
@@ -34,13 +49,21 @@ class AgentService {
     const baseUrl = useBackend ? this.backendUrl : this.baseUrl
     const url = `${baseUrl}${endpoint}`
 
+    const token = this.getToken()
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    if (options?.headers) {
+      Object.entries(options.headers as Record<string, string>).forEach(([k, v]) => {
+        headers[k] = v
+      })
+    }
+
     try {
       const response = await fetch(url, {
         ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...options?.headers,
-        },
+        headers,
       })
 
       if (!response.ok) {
@@ -147,44 +170,39 @@ class AgentService {
     )
   }
 
-  // Dashboard methods
-  async getDashboardStats(userId: string): Promise<DashboardStats> {
-    return this.request<DashboardStats>(
-      `/api/dashboard/stats/${userId}`,
-      {},
-      true
-    )
+  // Auth methods
+
+  /** Returns the authenticated user's identity from the backend. */
+  async getMe(): Promise<{ user_id: string; email: string; institution: string; role: string }> {
+    return this.request('/api/auth/me', {}, true)
   }
 
-  async getUserActivity(userId: string, limit?: number, offset?: number): Promise<ActivityItem[]> {
+  // Dashboard methods — routes now use context user (no user_id in URL)
+
+  async getDashboardStats(_userId?: string): Promise<DashboardStats> {
+    return this.request<DashboardStats>('/api/dashboard/stats', {}, true)
+  }
+
+  async getUserActivity(_userId?: string, limit?: number, offset?: number): Promise<ActivityItem[]> {
     const params = new URLSearchParams()
     if (limit !== undefined) params.append('limit', limit.toString())
     if (offset !== undefined) params.append('offset', offset.toString())
-
-    const queryString = params.toString()
-    const url = `/api/training/activity/${userId}${queryString ? `?${queryString}` : ''}`
-
-    const response = await this.request<{ activities: ActivityItem[] }>(url, {}, true)
+    const qs = params.toString()
+    const response = await this.request<{ activities: ActivityItem[] }>(
+      `/api/training/activity${qs ? `?${qs}` : ''}`, {}, true
+    )
     return response.activities
   }
 
-  async getUserProfile(userId: string): Promise<UserProfile> {
-    return this.request<UserProfile>(
-      `/api/users/${userId}/profile`,
-      {},
-      true
-    )
+  async getUserProfile(_userId?: string): Promise<UserProfile> {
+    return this.request<UserProfile>('/api/users/me', {}, true)
   }
 
-  async updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile> {
-    return this.request<UserProfile>(
-      `/api/users/${userId}/profile`,
-      {
-        method: 'PUT',
-        body: JSON.stringify(updates),
-      },
-      true
-    )
+  async updateUserProfile(_userId: string, updates: Partial<UserProfile>): Promise<UserProfile> {
+    return this.request<UserProfile>('/api/users/me', {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    }, true)
   }
 }
 

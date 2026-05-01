@@ -33,11 +33,19 @@ services:
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_USER: qualify
-      DB_PASSWORD: qualify_dev_password
+      DB_PASSWORD: ${DB_PASSWORD:-qualify_dev_password}
       DB_NAME: qualify
       DB_SSLMODE: disable
       MIGRATIONS_PATH: /app/migrations
       LOG_LEVEL: info
+      # Authentication — set AUTH_DEV_MODE=false and JWT_SECRET in production
+      AUTH_DEV_MODE: ${AUTH_DEV_MODE:-true}
+      AUTH_DEV_USER_ID: ${AUTH_DEV_USER_ID:-00000000-0000-0000-0000-000000000001}
+      AUTH_DEV_EMAIL: ${AUTH_DEV_EMAIL:-dev@example.edu}
+      JWT_SECRET: ${JWT_SECRET:-}
+      # License — leave empty for community tier; set for commercial features
+      LICENSE_KEY: ${LICENSE_KEY:-}
+      LICENSE_ENDPOINT: ${LICENSE_ENDPOINT:-https://licensing.provabl.co/api/v1/validate}
     ports:
       - "8081:8080"
     depends_on:

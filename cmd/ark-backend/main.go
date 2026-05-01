@@ -18,7 +18,9 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/provabl/qualify/internal/audit"
+	"github.com/provabl/qualify/internal/auth"
 	"github.com/provabl/qualify/internal/database"
+	"github.com/provabl/qualify/internal/license"
 	"github.com/provabl/qualify/internal/training"
 )
 
@@ -34,6 +36,8 @@ const (
 )
 
 func main() {
+	ctx := context.Background()
+
 	// Setup structured logging
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
@@ -86,6 +90,26 @@ func main() {
 		)
 	}
 
+	// Load auth configuration
+	authCfg := auth.Load()
+	if authCfg.DevMode {
+		slog.Warn("AUTH_DEV_MODE is enabled — DO NOT USE IN PRODUCTION")
+	} else if !authCfg.ProductionReady() {
+		slog.Warn("JWT_SECRET not configured — tokens will use a dev secret; set JWT_SECRET for production")
+	}
+
+	// Validate license (network-based, cached in system_config)
+	licenseKey := getEnv("LICENSE_KEY", "")
+	licenseEndpoint := getEnv("LICENSE_ENDPOINT", "https://licensing.provabl.co/api/v1/validate")
+	cacheTTL := getEnvDuration("LICENSE_CACHE_TTL", 24*time.Hour)
+	licenseValidator := license.NewValidator(licenseEndpoint, licenseKey, cacheTTL, db)
+	licenseInfo, err := licenseValidator.ValidateAndCache(ctx)
+	if err != nil {
+		slog.Warn("license validation failed — running as community tier", "error", err)
+		licenseInfo = license.CommunityLicense()
+	}
+	slog.Info("license active", "tier", licenseInfo.Tier, "expires", licenseInfo.ExpiresAt)
+
 	// Initialize services
 	auditSvc := audit.NewService(db)
 	trainingSvc := training.NewService(db)
@@ -96,7 +120,7 @@ func main() {
 	addr := fmt.Sprintf("%s:%s", defaultHost, getEnv("PORT", defaultPort))
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      setupRouter(auditSvc, trainingSvc),
+		Handler:      setupRouter(authCfg, auditSvc, trainingSvc),
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,
@@ -136,7 +160,7 @@ func main() {
 	slog.Info("backend stopped")
 }
 
-func setupRouter(auditSvc *audit.Service, trainingSvc *training.Service) http.Handler {
+func setupRouter(authCfg auth.Config, auditSvc *audit.Service, trainingSvc *training.Service) http.Handler {
 	r := chi.NewRouter()
 
 	// Middleware stack
@@ -164,54 +188,65 @@ func setupRouter(auditSvc *audit.Service, trainingSvc *training.Service) http.Ha
 		MaxAge:           300,
 	}))
 
-	// Health and system endpoints
+	// Public endpoints — no authentication required
 	r.Get("/health", handleHealth)
 
-	// API routes
-	// WARNING: these endpoints have no authentication — any client on localhost can
-	// read or modify any user's training data. Do not expose this server on a public
-	// network without authentication. See GitHub issue #5 (SSO integration).
 	r.Route("/api", func(r chi.Router) {
+		// Public: version, auth, public training listings
 		r.Get("/version", handleVersion)
-
-		// System endpoints
 		r.Route("/system", func(r chi.Router) {
 			r.Get("/health", handleHealth)
 			r.Get("/version", handleVersion)
 		})
 
-		// Audit endpoints
-		r.Route("/audit", func(r chi.Router) {
-			r.Post("/log", handleLogAudit(auditSvc))
-			r.Get("/logs", handleQueryAudit(auditSvc))
+		// Auth endpoints — public (issue tokens, return current user)
+		r.Route("/auth", func(r chi.Router) {
+			r.Get("/me", handleAuthMe(authCfg))
+			if authCfg.DevMode {
+				// Only available in dev mode — returns a signed JWT for the dev user
+				r.Get("/dev-token", handleDevToken(authCfg))
+			}
 		})
 
-		// Policy and training endpoints
-		r.Route("/policies", func(r chi.Router) {
-			r.Post("/check", handleCheckPolicy(trainingSvc))
+		// Public training content (no personal data)
+		r.Route("/training/modules", func(r chi.Router) {
+			r.Get("/", handleListModules(trainingSvc))
+			r.Get("/{id}", handleGetModule(trainingSvc))
 		})
 
-		r.Route("/training", func(r chi.Router) {
-			r.Get("/progress/{user_id}", handleGetUserProgress(trainingSvc))
-			r.Get("/modules", handleListModules(trainingSvc))
-			r.Get("/modules/{id}", handleGetModule(trainingSvc))
-			r.Post("/modules/{id}/start", handleStartModule(trainingSvc))
-			r.Post("/modules/{id}/complete", handleCompleteModule(trainingSvc))
-			r.Post("/modules/{id}/quiz/submit", handleSubmitQuiz(trainingSvc))
-			r.Get("/activity/{user_id}", handleGetUserActivity(trainingSvc))
-		})
+		// Protected endpoints — require valid JWT
+		r.Group(func(r chi.Router) {
+			r.Use(auth.Middleware(authCfg))
 
-		r.Route("/dashboard", func(r chi.Router) {
-			r.Get("/stats/{user_id}", handleGetDashboardStats(trainingSvc))
-		})
+			// Audit
+			r.Route("/audit", func(r chi.Router) {
+				r.Post("/log", handleLogAudit(auditSvc))
+				r.Get("/logs", handleQueryAudit(auditSvc))
+			})
 
-		r.Route("/users", func(r chi.Router) {
-			r.Get("/{user_id}/profile", handleGetUserProfile(trainingSvc))
-			r.Put("/{user_id}/profile", handleUpdateUserProfile(trainingSvc))
-		})
+			// Policy evaluation
+			r.Route("/policies", func(r chi.Router) {
+				r.Post("/check", handleCheckPolicy(trainingSvc))
+			})
 
-		// Future endpoints
-		// r.Route("/auth", func(r chi.Router) { ... })
+			// Training (personal data — user from context)
+			r.Route("/training", func(r chi.Router) {
+				r.Get("/progress", handleGetUserProgress(trainingSvc))
+				r.Get("/activity", handleGetUserActivity(trainingSvc))
+				r.Post("/modules/{id}/start", handleStartModule(trainingSvc))
+				r.Post("/modules/{id}/complete", handleCompleteModule(trainingSvc))
+				r.Post("/modules/{id}/quiz/submit", handleSubmitQuiz(trainingSvc))
+			})
+
+			// Dashboard
+			r.Get("/dashboard/stats", handleGetDashboardStats(trainingSvc))
+
+			// User profile
+			r.Route("/users/me", func(r chi.Router) {
+				r.Get("/", handleGetUserProfile(trainingSvc))
+				r.Put("/", handleUpdateUserProfile(trainingSvc))
+			})
+		})
 	})
 
 	return r
@@ -235,6 +270,54 @@ func loggerMiddleware(next http.Handler) http.Handler {
 			"remote_addr", r.RemoteAddr,
 		)
 	})
+}
+
+// handleAuthMe returns the authenticated user's claims from their token.
+func handleAuthMe(cfg auth.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Apply middleware inline so /api/auth/me returns proper 401 when unauthenticated.
+		var claims *auth.Claims
+		if cfg.DevMode {
+			// Dev mode: synthesize claims from config
+			c := &auth.Claims{Email: cfg.DevEmail, Role: cfg.DevRole}
+			c.Subject = cfg.DevUserID
+			claims = c
+		} else {
+			token := r.Header.Get("Authorization")
+			if len(token) > 7 {
+				token = token[7:] // strip "Bearer "
+			}
+			var err error
+			claims, err = auth.ValidateToken(cfg, token)
+			if err != nil {
+				http.Error(w, `{"error":"invalid or expired token"}`, http.StatusUnauthorized)
+				return
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]string{
+			"user_id":     claims.UserID(),
+			"email":       claims.Email,
+			"institution": claims.Institution,
+			"role":        claims.Role,
+		})
+	}
+}
+
+// handleDevToken issues a JWT for the dev user. Only registered when AUTH_DEV_MODE=true.
+func handleDevToken(cfg auth.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tok, err := auth.IssueToken(cfg, cfg.DevUserID, cfg.DevEmail, "", cfg.DevRole)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{
+			"token":   tok,
+			"user_id": cfg.DevUserID,
+			"email":   cfg.DevEmail,
+			"role":    cfg.DevRole,
+		})
+	}
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -268,6 +351,16 @@ func writeJSON(w http.ResponseWriter, status int, data interface{}) {
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
+	}
+	return defaultValue
+}
+
+// getEnvDuration gets a duration environment variable or returns a default value
+func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if d, err := time.ParseDuration(value); err == nil {
+			return d
+		}
 	}
 	return defaultValue
 }

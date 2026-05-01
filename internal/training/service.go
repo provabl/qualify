@@ -738,6 +738,56 @@ func (s *Service) SetIdentityTags(ctx context.Context, userID, labID, adminLevel
 	return nil
 }
 
+// GetUserProfile retrieves a user's profile from the database.
+func (s *Service) GetUserProfile(ctx context.Context, userID string) (*UserProfile, error) {
+	var p UserProfile
+	var prefsJSON []byte
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, email, COALESCE(name,''), COALESCE(institution,''), COALESCE(role,'researcher'),
+		        COALESCE(preferences,'{}'), created_at::text
+		 FROM users WHERE id = $1`, userID,
+	).Scan(&p.UserID, &p.Email, &p.Name, &p.Institution, &p.Role, &prefsJSON, &p.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("get user profile %s: %w", userID, err)
+	}
+	if len(prefsJSON) > 0 {
+		_ = json.Unmarshal(prefsJSON, &p.Preferences)
+	}
+	return &p, nil
+}
+
+// UpdateUserProfile updates mutable fields on a user profile.
+func (s *Service) UpdateUserProfile(ctx context.Context, userID string, email, name, institution *string, prefs *UserPreferences) error {
+	if prefs != nil {
+		prefsJSON, err := json.Marshal(prefs)
+		if err != nil {
+			return fmt.Errorf("marshal preferences: %w", err)
+		}
+		_, err = s.db.ExecContext(ctx,
+			`UPDATE users SET preferences = $2, updated_at = NOW() WHERE id = $1`,
+			userID, prefsJSON)
+		if err != nil {
+			return fmt.Errorf("update user preferences: %w", err)
+		}
+	}
+	if email != nil {
+		if _, err := s.db.ExecContext(ctx, `UPDATE users SET email = $2, updated_at = NOW() WHERE id = $1`, userID, *email); err != nil {
+			return fmt.Errorf("update user email: %w", err)
+		}
+	}
+	if name != nil {
+		if _, err := s.db.ExecContext(ctx, `UPDATE users SET name = $2, updated_at = NOW() WHERE id = $1`, userID, *name); err != nil {
+			return fmt.Errorf("update user name: %w", err)
+		}
+	}
+	if institution != nil {
+		if _, err := s.db.ExecContext(ctx, `UPDATE users SET institution = $2, updated_at = NOW() WHERE id = $1`, userID, *institution); err != nil {
+			return fmt.Errorf("update user institution: %w", err)
+		}
+	}
+	return nil
+}
+
 // RegisterRoleARN stores an IAM role ARN in the user's metadata for later tag writes.
 func (s *Service) RegisterRoleARN(ctx context.Context, userID, roleARN string) error {
 	_, err := s.db.ExecContext(ctx,

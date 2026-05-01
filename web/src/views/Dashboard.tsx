@@ -5,8 +5,6 @@ import { agentService } from '@/services/agent'
 import { cn } from '@/lib/utils'
 import type { DashboardStats, ActivityItem } from '@/types/api'
 
-const USER_ID = '00000000-0000-0000-0000-000000000001'
-
 const activityLabel: Record<string, string> = {
   module_started:    'Started Module',
   module_completed:  'Completed Module',
@@ -31,7 +29,7 @@ function formatTs(ts: string) {
   return `${Math.floor(diff / 86400)}d ago`
 }
 
-export default function Dashboard() {
+export default function Dashboard({ userId: _userId }: { userId?: string }) {
   const navigate = useNavigate()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -43,7 +41,7 @@ export default function Dashboard() {
     setLoading(true)
     setError(null)
     try {
-      setStats(await agentService.getDashboardStats(USER_ID))
+      setStats(await agentService.getDashboardStats())
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load dashboard')
     } finally {
