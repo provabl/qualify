@@ -94,12 +94,23 @@ cd web && npm run test:unit:run
 ## Environment variables for tests
 
 ```bash
+# Database (via make docker-up)
 export DB_HOST=localhost
 export DB_PORT=5433
 export DB_USER=qualify
 export DB_PASSWORD=qualify_dev_password
 export DB_NAME=qualify
+
+# Authentication — dev mode is the default for local development
+export AUTH_DEV_MODE=true
+export AUTH_DEV_USER_ID=00000000-0000-0000-0000-000000000001
+export AUTH_DEV_EMAIL=dev@example.edu
+
+# License — leave empty for community tier (no license key needed in dev)
+export LICENSE_KEY=
 ```
+
+For production deployments, see [DEPLOYMENT.md](DEPLOYMENT.md) for the full environment variable reference including `JWT_SECRET`, `LICENSE_KEY`, and OIDC configuration.
 
 ## Web frontend environment variables
 

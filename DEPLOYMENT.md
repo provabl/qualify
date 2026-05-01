@@ -151,17 +151,30 @@ The backend's license validator checks which packs are authorized for your licen
 
 ## Kubernetes deployment
 
-Reference manifests are in `kubernetes/`. Deploy with kustomize:
+Reference manifests are in `kubernetes/`. The kustomize overlay includes namespace, ConfigMap, Deployment, and Service resources.
 
 ```bash
-# Copy and edit the config
-cp kubernetes/configmap.yaml.example kubernetes/configmap.yaml
+# 1. Create your Secret (never commit this file)
 cp kubernetes/secret.yaml.example kubernetes/secret.yaml
-# Edit both files with your values
+# Edit kubernetes/secret.yaml — fill in DB_PASSWORD, JWT_SECRET, LICENSE_KEY
 
-# Apply
+# 2. Optionally edit ConfigMap defaults
+#    kubernetes/configmap.yaml — DB_HOST, AUTH_DEV_MODE, LOG_LEVEL, etc.
+
+# 3. Apply
 kubectl apply -k kubernetes/
-kubectl rollout status deployment/qualify-backend
+kubectl rollout status deployment/qualify-backend -n qualify
+
+# 4. Verify
+kubectl get pods -n qualify
+kubectl logs -n qualify deployment/qualify-backend | tail -20
+```
+
+To pin a specific release version, add to `kubernetes/kustomization.yaml`:
+```yaml
+images:
+  - name: ghcr.io/provabl/qualify-backend
+    newTag: v0.1.2
 ```
 
 ---

@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qualify-config
+  namespace: qualify
+  labels:
+    app.kubernetes.io/name: qualify
+    app.kubernetes.io/component: backend
+data:
+  DB_HOST: "postgres.qualify.svc.cluster.local"
+  DB_PORT: "5432"
+  DB_NAME: "qualify"
+  DB_USER: "qualify"
+  DB_SSLMODE: "require"
+  MIGRATIONS_PATH: "/app/migrations"
+  LOG_LEVEL: "info"
+  PORT: "8080"
+  # Authentication — set AUTH_DEV_MODE=false in the Secret for production
+  AUTH_DEV_MODE: "false"
+  # License — empty = community tier; set LICENSE_KEY in the Secret
+  LICENSE_ENDPOINT: "https://licensing.provabl.co/api/v1/validate"
+  LICENSE_CACHE_TTL: "24h"
