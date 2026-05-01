@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-05-01
+
+### Added
+
+- **`internal/auth/` package**: JWT-based authentication for the qualify backend (closes #33). Includes `Config`, `IssueToken`, `ValidateToken`, chi middleware, and context helpers. 12 unit tests.
+- **`GET /api/auth/dev-token`**: Issues a signed JWT for the configured dev user. Only available when `AUTH_DEV_MODE=true`. Returns 404 in production.
+- **`GET /api/auth/me`**: Returns the authenticated user's identity from their token.
+- **`internal/license/` package**: Network-based license validation against `https://licensing.provabl.co`. Results cached in `system_config` table with configurable TTL. Falls back to `CommunityLicense()` (open-source tier) when key is absent or server unreachable.
+- **Migration 000009** (`system_config`): Key/value cache table with TTL for license validation and future feature flags.
+- **`compose.env.example`**: Deployment environment template documenting all variables.
+- **`DEPLOYMENT.md`**: Comprehensive self-hosted deployment guide — quick start, all env vars, auth flow progression (dev → JWT → OIDC), content packs, Kubernetes, backup, troubleshooting.
+- **`kubernetes/`**: Reference Kubernetes manifests (namespace, ConfigMap, Deployment, Service, kustomization). Non-root, read-only filesystem, resource limits.
+
+### Changed
+
+- All `cmd/ark-backend` handlers now extract `user_id` from JWT context rather than URL params or request body — prevents privilege escalation.
+- `setupRouter` requires `auth.Config`; protected routes grouped under `auth.Middleware`. Public routes (health, module listing, auth endpoints) bypass auth.
+- `training.Service` gains `GetUserProfile()` and `UpdateUserProfile()` — real DB queries replacing hardcoded mock responses.
+- `web/src/App.tsx`: removed hardcoded `USER_ID`. App fetches JWT from `/api/auth/dev-token` on mount, stores in `sessionStorage`, resolves user via `/api/auth/me`.
+- `web/src/services/agent.ts`: all backend requests include `Authorization: Bearer <token>` header. Added `getToken/setToken/clearToken` and `getMe()`.
+- `docker-compose.yml`: added `AUTH_DEV_MODE`, `JWT_SECRET`, `LICENSE_KEY` env vars.
+- `go.mod`: updated Go directive from `1.24.0` to `1.26.0` to match toolchain.
+
 ## [0.1.1] - 2026-04-30
 
 ### Security
