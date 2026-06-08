@@ -17,7 +17,7 @@ ARG BUILD_DATE=unknown
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w -X main.version=${VERSION} -X main.commitSHA=${COMMIT_SHA} -X main.buildDate=${BUILD_DATE}" \
     -o /build/bin/qualify-backend \
-    ./cmd/ark-backend
+    ./cmd/qualify-backend
 
 # Runtime stage
 FROM alpine:3.21

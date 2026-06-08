@@ -20,8 +20,8 @@ make test             # full test suite with coverage
 cmd/
   qualify/           CLI entry point
     cmd/             cobra subcommands: train, lab, onboard, s3, credentials
-  ark-backend/       HTTP API server
-  ark-agent/         Local AWS operation interceptor
+  qualify-backend/   HTTP API server
+  qualify-agent/     Local AWS operation interceptor
 internal/
   training/          Module storage, quiz scoring, completion records
   localaudit/        JSONL audit log (~/.qualify/audit.log)

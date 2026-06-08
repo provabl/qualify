@@ -81,14 +81,14 @@ build: build-agent build-backend build-cli
 build-agent:
 	@echo "→ Building agent..."
 	@mkdir -p bin
-	@go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o $(AGENT_BIN) ./cmd/ark-agent
+	@go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o $(AGENT_BIN) ./cmd/qualify-agent
 	@echo "✓ Agent built: $(AGENT_BIN)"
 
 ## build-backend: Build backend binary
 build-backend:
 	@echo "→ Building backend..."
 	@mkdir -p bin
-	@go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o $(BACKEND_BIN) ./cmd/ark-backend
+	@go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o $(BACKEND_BIN) ./cmd/qualify-backend
 	@echo "✓ Backend built: $(BACKEND_BIN)"
 
 ## build-cli: Build CLI binary
@@ -189,12 +189,12 @@ dev: docker-up
 ## agent-dev: Run agent in development mode (auto-reload)
 agent-dev:
 	@echo "→ Running agent in development mode..."
-	@go run ./cmd/ark-agent
+	@go run ./cmd/qualify-agent
 
 ## backend-dev: Run backend in development mode (auto-reload)
 backend-dev:
 	@echo "→ Running backend in development mode..."
-	@go run ./cmd/ark-backend
+	@go run ./cmd/qualify-backend
 
 ## cli-dev: Run CLI in development mode
 cli-dev:
@@ -209,22 +209,22 @@ release-build:
 	@echo "→ Building release binaries for version $(VERSION)..."
 	@mkdir -p dist
 	# Linux amd64
-	@GOOS=linux GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-agent-linux-amd64 ./cmd/ark-agent
-	@GOOS=linux GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-backend-linux-amd64 ./cmd/ark-backend
-	@GOOS=linux GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-linux-amd64 ./cmd/qualify
+	@GOOS=linux GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/qualify-agent-linux-amd64 ./cmd/qualify-agent
+	@GOOS=linux GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/qualify-backend-linux-amd64 ./cmd/qualify-backend
+	@GOOS=linux GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/qualify-linux-amd64 ./cmd/qualify
 	# Linux arm64
-	@GOOS=linux GOARCH=arm64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-agent-linux-arm64 ./cmd/ark-agent
-	@GOOS=linux GOARCH=arm64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-backend-linux-arm64 ./cmd/ark-backend
-	@GOOS=linux GOARCH=arm64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-linux-arm64 ./cmd/qualify
+	@GOOS=linux GOARCH=arm64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/qualify-agent-linux-arm64 ./cmd/qualify-agent
+	@GOOS=linux GOARCH=arm64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/qualify-backend-linux-arm64 ./cmd/qualify-backend
+	@GOOS=linux GOARCH=arm64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/qualify-linux-arm64 ./cmd/qualify
 	# macOS amd64
-	@GOOS=darwin GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-agent-darwin-amd64 ./cmd/ark-agent
-	@GOOS=darwin GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-darwin-amd64 ./cmd/qualify
+	@GOOS=darwin GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/qualify-agent-darwin-amd64 ./cmd/qualify-agent
+	@GOOS=darwin GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/qualify-darwin-amd64 ./cmd/qualify
 	# macOS arm64
-	@GOOS=darwin GOARCH=arm64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-agent-darwin-arm64 ./cmd/ark-agent
-	@GOOS=darwin GOARCH=arm64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-darwin-arm64 ./cmd/qualify
+	@GOOS=darwin GOARCH=arm64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/qualify-agent-darwin-arm64 ./cmd/qualify-agent
+	@GOOS=darwin GOARCH=arm64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/qualify-darwin-arm64 ./cmd/qualify
 	# Windows amd64
-	@GOOS=windows GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-agent-windows-amd64.exe ./cmd/ark-agent
-	@GOOS=windows GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/ark-windows-amd64.exe ./cmd/qualify
+	@GOOS=windows GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/qualify-agent-windows-amd64.exe ./cmd/qualify-agent
+	@GOOS=windows GOARCH=amd64 go build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o dist/qualify-windows-amd64.exe ./cmd/qualify
 	@echo "✓ Release binaries built in dist/"
 
 ## release-test: Run all tests before release

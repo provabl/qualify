@@ -15,11 +15,11 @@ import "time"
 // Info describes the active license for this deployment.
 type Info struct {
 	Valid        bool
-	Tier         string            // community | professional | enterprise
+	Tier         string // community | professional | enterprise
 	ExpiresAt    time.Time
 	Company      string
-	ContentPacks []string          // content pack IDs included in license
-	Features     map[string]bool   // sso, multi_institution, advanced_reporting, etc.
+	ContentPacks []string        // content pack IDs included in license
+	Features     map[string]bool // sso, multi_institution, advanced_reporting, etc.
 }
 
 // CommunityLicense returns the default open-source license with no key required.
@@ -31,10 +31,10 @@ func CommunityLicense() *Info {
 		Company:      "",
 		ContentPacks: []string{"basic"},
 		Features: map[string]bool{
-			"sso":                  false,
-			"multi_institution":    false,
-			"advanced_reporting":   false,
-			"custom_content":       false,
+			"sso":                false,
+			"multi_institution":  false,
+			"advanced_reporting": false,
+			"custom_content":     false,
 		},
 	}
 }

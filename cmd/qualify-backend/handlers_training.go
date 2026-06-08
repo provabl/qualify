@@ -211,8 +211,8 @@ func handleCompleteModule(trainingSvc *training.Service) http.HandlerFunc {
 		slog.Info("module completed", "user_id", userID, "module_id", moduleID, "score", req.Score)
 
 		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"status":    "completed",
-			"message":   "Module completed successfully",
+			"status":  "completed",
+			"message": "Module completed successfully",
 			"user_id": userID, "module_id": moduleID})
 	}
 }
