@@ -68,10 +68,10 @@ func Start(agentBinaryPath string) error {
 	return nil
 }
 
-// findAgentBinary locates the ark-agent binary
+// findAgentBinary locates the qualify-agent binary
 func findAgentBinary() (string, error) {
-	// Check if ark-agent is in PATH
-	path, err := exec.LookPath("ark-agent")
+	// Check if qualify-agent is in PATH
+	path, err := exec.LookPath("qualify-agent")
 	if err == nil {
 		return path, nil
 	}
@@ -83,7 +83,7 @@ func findAgentBinary() (string, error) {
 	}
 
 	exeDir := filepath.Dir(exePath)
-	agentPath := filepath.Join(exeDir, "ark-agent")
+	agentPath := filepath.Join(exeDir, "qualify-agent")
 	if runtime.GOOS == "windows" {
 		agentPath += ".exe"
 	}
@@ -92,7 +92,7 @@ func findAgentBinary() (string, error) {
 		return agentPath, nil
 	}
 
-	return "", fmt.Errorf("ark-agent binary not found in PATH or %s", exeDir)
+	return "", fmt.Errorf("qualify-agent binary not found in PATH or %s", exeDir)
 }
 
 // getDataDir returns the agent data directory

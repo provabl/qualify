@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Changed
+
+- **Completed the `ark` → `qualify` rename** (closes #34): renamed `cmd/ark-agent` → `cmd/qualify-agent` and `cmd/ark-backend` → `cmd/qualify-backend`. Build paths, Dockerfiles, release artifact names, and docs updated to match. The binaries were already emitted as `qualify-agent` / `qualify-backend`; the command directories now agree.
+- **Bumped Go directive to 1.26.4** to align with the patched standard library (clears the GO-2026-* advisories).
+
+### Fixed
+
+- **Agent daemon binary lookup**: `findAgentBinary` searched `PATH` and the executable directory for `ark-agent`, but the build emits `qualify-agent` — so daemon-managed agent startup could never find it. Now looks up `qualify-agent`.
+
+### Removed
+
+- Removed a stray ~10 MB `ark-backend` binary that had been committed to the repo root; added the root-built binary names to `.gitignore`.
+
 ## [0.1.2] - 2026-05-01
 
 ### Added

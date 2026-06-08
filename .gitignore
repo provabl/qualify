@@ -3,6 +3,10 @@ dist/
 coverage.out
 *.exe
 *.test
+# stray binaries built into the repo root (canonical output is bin/)
+/qualify
+/qualify-agent
+/qualify-backend
 .DS_Store
 *.log
 

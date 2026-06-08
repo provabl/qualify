@@ -107,8 +107,8 @@ qualify agent (local)
 | `cmd/qualify/cmd/` | CLI commands (train, lab, onboard, s3, credentials) |
 | `internal/training/` | Module storage, quiz scoring, completion records |
 | `internal/localaudit/` | JSONL audit log at `~/.qualify/audit.log` |
-| `cmd/ark-backend/` | HTTP API for dashboard and training progress |
-| `cmd/ark-agent/` | Local agent intercepting AWS operations |
+| `cmd/qualify-backend/` | HTTP API for dashboard and training progress |
+| `cmd/qualify-agent/` | Local agent intercepting AWS operations |
 | `web/` | React + Radix UI + Tailwind dashboard (TypeScript, Vite, optional) |
 
 ### Integration with attest
