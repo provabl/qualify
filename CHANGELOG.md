@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Added
+
+- **`attest:*` IAM tags written through the provabl/evidence kernel** (closes #38): training-module
+  completion now appraises via the evidence kernel `(ASP, appraiser)` pair and lowers the verdict to
+  the `attest:*` role tags attest's principal resolver reads, instead of writing tags directly.
+  Ephemeral per-run AM key; the kernel is the single producer of the lowered attributes.
+- **Identity + countries-of-concern routed through the kernel** (closes #40): the researcher's
+  identity attributes and countries-of-concern (COC) determination flow through the same kernel
+  lowering as the training tags, so `attest:*` identity/COC tags carry the same provenance as the
+  training tags rather than being set out-of-band.
+
 ### Changed
 
 - **Completed the `ark` → `qualify` rename** (closes #34): renamed `cmd/ark-agent` → `cmd/qualify-agent` and `cmd/ark-backend` → `cmd/qualify-backend`. Build paths, Dockerfiles, release artifact names, and docs updated to match. The binaries were already emitted as `qualify-agent` / `qualify-backend`; the command directories now agree.

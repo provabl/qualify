@@ -200,4 +200,4 @@ See [COMMERCIAL.md](COMMERCIAL.md) for the full boundary.
 
 ## License
 
-Apache 2.0. Copyright 2026 Scott Friedman.
+Apache 2.0. Copyright 2026 Playground Logic LLC.
