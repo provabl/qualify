@@ -136,6 +136,42 @@ func TestRecordCountryCheck_WritesIAMTags(t *testing.T) {
 	}
 }
 
+func TestSetIdentityTags_WritesIAMTags(t *testing.T) {
+	svc, mock := newMockService(t)
+	expectRoleARN(mock, "arn:aws:iam::123456789012:role/ResearchRole")
+
+	tagger := &mockTagger{}
+	svc.iamTagger = tagger
+
+	if err := svc.SetIdentityTags(context.Background(), "user-1", "genomics-lab", "env"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Identity tags now flow through the evidence kernel (attributes provider) and
+	// the same tagsFromAttrs chokepoint — the written tags must be unchanged.
+	if tagger.roleName != "ResearchRole" {
+		t.Errorf("role name: got %q, want ResearchRole", tagger.roleName)
+	}
+	if tagger.tags[TagLabID] != "genomics-lab" {
+		t.Errorf("%s: got %q, want genomics-lab", TagLabID, tagger.tags[TagLabID])
+	}
+	if tagger.tags[TagAdminLevel] != "env" {
+		t.Errorf("%s: got %q, want env", TagAdminLevel, tagger.tags[TagAdminLevel])
+	}
+	// No stray tags (e.g. the synthetic "attested" must not leak as an IAM tag).
+	if len(tagger.tags) != 2 {
+		t.Errorf("expected exactly 2 tags, got %d: %v", len(tagger.tags), tagger.tags)
+	}
+}
+
+func TestSetIdentityTags_RejectsInvalidAdminLevel(t *testing.T) {
+	svc, _ := newMockService(t)
+	svc.iamTagger = &mockTagger{}
+	if err := svc.SetIdentityTags(context.Background(), "user-1", "lab", "superuser"); err == nil {
+		t.Error("expected error for invalid admin-level")
+	}
+}
+
 // ── TagForModule / ModuleIDs ───────────────────────────────────────────────
 
 func TestTagForModule(t *testing.T) {

@@ -156,3 +156,81 @@ func TestProvider_FreshnessNonceMismatch(t *testing.T) {
 		t.Fatal("expected freshness failure on nonce mismatch")
 	}
 }
+
+// appraiseAttrs runs the attributes (identity / coc) pair through a CVM and
+// returns the lowered attributes — the same path SetIdentityTags/RecordCountryCheck drive.
+func appraiseAttrs(t *testing.T, in qualifyasp.AttributesInput) map[string]lower.Attr {
+	t.Helper()
+	reg := asp.NewRegistry()
+	if err := reg.Register(qualifyasp.AttributesProvider(in)); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	am, err := qualifyasp.NewEphemeralAM()
+	if err != nil {
+		t.Fatalf("am: %v", err)
+	}
+	c := cvm.New(reg, am, am, nil)
+	protocol := term.Seq(
+		term.Nonce(),
+		term.Seq(term.Meas(term.Self, qualifyasp.AttrID, qualifyasp.Target("arn:aws:iam::123456789012:role/r"), term.Params{}), term.Sig()),
+	)
+	bundle, ch, err := c.Run(context.Background(), protocol)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	v, err := c.Appraise(context.Background(), bundle, ch)
+	if err != nil {
+		t.Fatalf("appraise: %v", err)
+	}
+	if !v.Pass {
+		t.Fatalf("attributes pair must always pass, reason: %s", v.Reason)
+	}
+	return lower.ToAttributes(v)
+}
+
+func TestAttributesProvider_EmitsTagsVerbatim(t *testing.T) {
+	attrs := appraiseAttrs(t, qualifyasp.AttributesInput{Tags: []qualifyasp.Tag{
+		{Key: "attest:lab-id", Value: "genomics-lab"},
+		{Key: "attest:admin-level", Value: "env"},
+	}})
+	if attrs["attest:lab-id"].Value != "genomics-lab" {
+		t.Errorf("attest:lab-id = %q, want genomics-lab", attrs["attest:lab-id"].Value)
+	}
+	if attrs["attest:admin-level"].Value != "env" {
+		t.Errorf("attest:admin-level = %q, want env", attrs["attest:admin-level"].Value)
+	}
+	// Only the two attest:* keys plus the synthetic "attested".
+	attestKeys := 0
+	for k := range attrs {
+		if qualifyasp.IsAttestTag(k) {
+			attestKeys++
+		}
+	}
+	if attestKeys != 2 {
+		t.Errorf("expected 2 attest:* attrs, got %d: %v", attestKeys, attrs)
+	}
+}
+
+func TestAttributesProvider_EmptyIsNotApplicable(t *testing.T) {
+	reg := asp.NewRegistry()
+	if err := reg.Register(qualifyasp.AttributesProvider(qualifyasp.AttributesInput{})); err != nil {
+		t.Fatal(err)
+	}
+	am, _ := qualifyasp.NewEphemeralAM()
+	c := cvm.New(reg, am, am, nil)
+	protocol := term.Seq(term.Nonce(), term.Seq(term.Meas(term.Self, qualifyasp.AttrID, qualifyasp.Target("x"), term.Params{}), term.Sig()))
+	bundle, ch, err := c.Run(context.Background(), protocol)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := c.Appraise(context.Background(), bundle, ch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attrs := lower.ToAttributes(v)
+	for k := range attrs {
+		if qualifyasp.IsAttestTag(k) {
+			t.Errorf("NotApplicable must emit no attest:* claims, got %q", k)
+		}
+	}
+}
