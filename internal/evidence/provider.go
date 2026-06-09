@@ -123,3 +123,71 @@ func (appraiser) Appraise(_ context.Context, in asp.AppraiseIn) (asp.Verdict, er
 // Exposed so the single tag-writing chokepoint in the training service can filter
 // on it without re-deriving the namespace.
 func IsAttestTag(key string) bool { return strings.HasPrefix(key, "attest:") }
+
+// --- attributes provider: identity & countries-of-concern -------------------
+//
+// SetIdentityTags (attest:lab-id, attest:admin-level) and RecordCountryCheck
+// (attest:country, attest:coc-check-current, attest:coc-check-expiry) are direct
+// attestations of recorded facts — there is no quiz to pass. They route through
+// the kernel for the SAME reason training does (one lowering path; a freshness-
+// bound, appraised assertion rather than a hand-built tag set), but the appraiser
+// always passes: the verdict is "these recorded attributes are attested as of
+// now", and the claims are the attest:* tags to write.
+
+// AttrID keys the attributes pair in the registry. Distinct from the training
+// ID so a single registry could hold both, and so the kernel's synthetic markers
+// read "attrs.*" rather than "training.*".
+const AttrID term.ASPID = "attrs"
+
+// Tag is a pre-resolved attest:* attribute to attest. Key is the full IAM tag key
+// (e.g. "attest:lab-id"), sourced from the caller (tags.go constants) so this
+// package never types an attest:* literal — same drift guard as the training pair.
+type Tag struct {
+	Key   string
+	Value string
+}
+
+// AttributesInput is the set of attest:* tags to attest for a principal.
+type AttributesInput struct {
+	Tags []Tag `json:"tags"`
+}
+
+// AttributesProvider assembles the attributes pair from an injected tag set.
+func AttributesProvider(in AttributesInput) asp.Provider {
+	return asp.Provider{
+		ID:        AttrID,
+		Measurer:  attrMeasurer{in: in},
+		Appraiser: attrAppraiser{},
+	}
+}
+
+type attrMeasurer struct{ in AttributesInput }
+
+func (m attrMeasurer) Measure(_ context.Context, _ asp.MeasureIn) (ev.Measurement, error) {
+	if len(m.in.Tags) == 0 {
+		// Nothing to attest — the kernel-native form of "no tags to write".
+		return ev.Measurement{Status: ev.NotApplicable, Detail: "no attributes to attest"}, nil
+	}
+	payload, err := json.Marshal(m.in)
+	if err != nil {
+		return ev.Measurement{}, fmt.Errorf("qualify: marshal attributes: %w", err)
+	}
+	return ev.Measurement{Payload: payload, Status: ev.Collected}, nil
+}
+
+type attrAppraiser struct{}
+
+func (attrAppraiser) Appraise(_ context.Context, in asp.AppraiseIn) (asp.Verdict, error) {
+	var p AttributesInput
+	if err := json.Unmarshal(in.Meas.Payload, &p); err != nil {
+		return asp.Verdict{}, fmt.Errorf("qualify: decode attributes: %w", err)
+	}
+	// No pass/fail: these are recorded facts being attested. Emit each as a claim;
+	// types default to "string" in lowering, which is correct for lab-id, country,
+	// admin-level, RFC3339 expiry; coc-check-current is the string "true".
+	claims := make([]asp.Claim, 0, len(p.Tags))
+	for _, t := range p.Tags {
+		claims = append(claims, asp.Claim{Key: t.Key, Value: t.Value, Type: "string"})
+	}
+	return asp.Verdict{Pass: true, Claims: claims, Reason: "attributes attested"}, nil
+}

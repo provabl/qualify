@@ -399,38 +399,53 @@ func (s *Service) writeAttestTags(ctx context.Context, roleARN, moduleID string,
 		ExpiresAt:    expiresAt.Format(time.RFC3339),
 	}
 
+	tags, err := runProviderToTags(ctx, qualifyasp.ID, qualifyasp.Provider(input), qualifyasp.Target(roleARN))
+	if err != nil {
+		return err
+	}
+	if len(tags) == 0 {
+		// Unmapped module or failing score — nothing to write.
+		return nil
+	}
+	return s.tagRole(ctx, roleARN, tags)
+}
+
+// runProviderToTags runs the canonical Seq(Nonce, Seq(Meas, Sig)) term for a
+// single (ASP, appraiser) pair through an ephemeral-AM CVM, appraises the bundle,
+// and lowers the verdict to the attest:* IAM tags. It is the shared kernel path
+// behind both the training and the attributes (identity / countries-of-concern)
+// tag writes.
+func runProviderToTags(ctx context.Context, id term.ASPID, provider asp.Provider, target term.Target) ([]iamtypes.Tag, error) {
 	reg := asp.NewRegistry()
-	if err := reg.Register(qualifyasp.Provider(input)); err != nil {
-		return fmt.Errorf("register training provider: %w", err)
+	if err := reg.Register(provider); err != nil {
+		return nil, fmt.Errorf("register %s provider: %w", id, err)
 	}
 	am, err := qualifyasp.NewEphemeralAM()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	c := cvm.New(reg, am, am, nil)
 
 	protocol := term.Seq(
 		term.Nonce(),
 		term.Seq(
-			term.Meas(term.Self, qualifyasp.ID, qualifyasp.Target(roleARN), term.Params{}),
+			term.Meas(term.Self, id, target, term.Params{}),
 			term.Sig(),
 		),
 	)
 	bundle, ch, err := c.Run(ctx, protocol)
 	if err != nil {
-		return fmt.Errorf("run attestation: %w", err)
+		return nil, fmt.Errorf("run attestation: %w", err)
 	}
 	verdict, err := c.Appraise(ctx, bundle, ch)
 	if err != nil {
-		return fmt.Errorf("appraise: %w", err)
+		return nil, fmt.Errorf("appraise: %w", err)
 	}
+	return tagsFromAttrs(lower.ToAttributes(verdict)), nil
+}
 
-	tags := tagsFromAttrs(lower.ToAttributes(verdict))
-	if len(tags) == 0 {
-		// Unmapped module or failing score — nothing to write.
-		return nil
-	}
-
+// tagRole writes the given attest:* tags to the principal's IAM role.
+func (s *Service) tagRole(ctx context.Context, roleARN string, tags []iamtypes.Tag) error {
 	roleName := extractRoleName(roleARN)
 	if roleName == "" {
 		return fmt.Errorf("could not extract role name from ARN: %s", roleARN)
@@ -783,22 +798,17 @@ func (s *Service) SetIdentityTags(ctx context.Context, userID, labID, adminLevel
 	if roleARN == "" {
 		return fmt.Errorf("no IAM role ARN found for user %s: register the role ARN first", userID)
 	}
-	roleName := extractRoleName(roleARN)
-	if roleName == "" {
-		return fmt.Errorf("could not extract role name from ARN: %s", roleARN)
-	}
 
-	_, err := s.iamTagger.TagRole(ctx, &iam.TagRoleInput{
-		RoleName: aws.String(roleName),
-		Tags: []iamtypes.Tag{
-			{Key: aws.String("attest:lab-id"), Value: aws.String(labID)},
-			{Key: aws.String("attest:admin-level"), Value: aws.String(adminLevel)},
+	tags, err := runProviderToTags(ctx, qualifyasp.AttrID, qualifyasp.AttributesProvider(qualifyasp.AttributesInput{
+		Tags: []qualifyasp.Tag{
+			{Key: TagLabID, Value: labID},
+			{Key: TagAdminLevel, Value: adminLevel},
 		},
-	})
+	}), qualifyasp.Target(roleARN))
 	if err != nil {
-		return fmt.Errorf("tagging IAM role %s: %w", roleName, err)
+		return err
 	}
-	return nil
+	return s.tagRole(ctx, roleARN, tags)
 }
 
 // GetUserProfile retrieves a user's profile from the database.
@@ -900,22 +910,17 @@ func (s *Service) RecordCountryCheck(ctx context.Context, userID, countryCode, p
 	if roleARN == "" {
 		return fmt.Errorf("no IAM role ARN found for user %s: register the role ARN first", userID)
 	}
-	roleName := extractRoleName(roleARN)
-	if roleName == "" {
-		return fmt.Errorf("could not extract role name from ARN: %s", roleARN)
-	}
 
 	expiry := now.AddDate(1, 0, 0).Format(time.RFC3339)
-	_, err = s.iamTagger.TagRole(ctx, &iam.TagRoleInput{
-		RoleName: aws.String(roleName),
-		Tags: []iamtypes.Tag{
-			{Key: aws.String("attest:country"), Value: aws.String(upper)},
-			{Key: aws.String("attest:coc-check-current"), Value: aws.String("true")},
-			{Key: aws.String("attest:coc-check-expiry"), Value: aws.String(expiry)},
+	tags, err := runProviderToTags(ctx, qualifyasp.AttrID, qualifyasp.AttributesProvider(qualifyasp.AttributesInput{
+		Tags: []qualifyasp.Tag{
+			{Key: TagCountry, Value: upper},
+			{Key: TagCOCCheckCurrent, Value: "true"},
+			{Key: TagCOCCheckExpiry, Value: expiry},
 		},
-	})
+	}), qualifyasp.Target(roleARN))
 	if err != nil {
-		return fmt.Errorf("tagging IAM role %s: %w", roleName, err)
+		return err
 	}
-	return nil
+	return s.tagRole(ctx, roleARN, tags)
 }
