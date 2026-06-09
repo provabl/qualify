@@ -411,7 +411,7 @@ func runTrainStart(moduleID, userID string, restart bool) error {
 				fmt.Printf("%s\n\n", sep)
 
 				// Mark complete and write IAM tags.
-				if completeErr := svc.CompleteModule(ctx, userID, moduleID, score); completeErr != nil {
+				if completeErr := svc.CompleteModule(ctx, userID, moduleID, score, mc.PassingScore); completeErr != nil {
 					fmt.Printf("  ⚠ Could not record completion: %v\n", completeErr)
 					fmt.Printf("    Run 'qualify lab register-role --user %s --role-arn <arn>' to enable IAM tag writes.\n", userID)
 				} else {

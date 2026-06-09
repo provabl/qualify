@@ -196,7 +196,7 @@ func handleCompleteModule(trainingSvc *training.Service) http.HandlerFunc {
 			return
 		}
 
-		err := trainingSvc.CompleteModule(r.Context(), userID, moduleID, req.Score)
+		err := trainingSvc.CompleteModule(r.Context(), userID, moduleID, req.Score, training.DefaultPassingScore)
 		if err != nil {
 			slog.Error("failed to complete module",
 				"error", err,

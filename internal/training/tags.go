@@ -51,6 +51,12 @@ const (
 	TagAdminLevel = "attest:admin-level" // "none" | "env" | "sre"
 )
 
+// DefaultPassingScore is the percentage a quiz must reach to pass when the caller
+// has no per-module threshold of its own. The interactive CLI overrides this with
+// the module content's PassingScore; the backend handler, which receives only a
+// raw score, uses this default.
+const DefaultPassingScore = 80
+
 // moduleTagMap is the authoritative mapping from qualify training module IDs to
 // the attest:* IAM tag key written on completion. Unexported to prevent external
 // mutation — use TagForModule() and ModuleIDs() for read access.
