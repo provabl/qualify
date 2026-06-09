@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -17,7 +18,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/lib/pq"
+	"github.com/provabl/evidence/asp"
+	"github.com/provabl/evidence/cvm"
+	"github.com/provabl/evidence/lower"
+	"github.com/provabl/evidence/term"
+
 	"github.com/provabl/qualify/internal/database"
+	qualifyasp "github.com/provabl/qualify/internal/evidence"
 )
 
 // iamTagWriter is the interface for writing IAM role tags.
@@ -321,7 +328,13 @@ func (s *Service) StartModule(ctx context.Context, userID, moduleID string) erro
 // CompleteModule marks a module as completed for a user.
 // If the service was initialized with IAM credentials and the user has a roleARN
 // registered, it writes attest:* tags to enable Cedar policy enforcement in attest.
-func (s *Service) CompleteModule(ctx context.Context, userID, moduleID string, score int) error {
+//
+// The attest:* tags are produced THROUGH the provabl/evidence kernel: the verdict
+// is appraised (see internal/evidence), and tags are written only when the
+// appraiser passes the completion. A score below passingScore writes no tags —
+// this is a deliberate behavior change: callers that previously reached this with
+// a failing score (e.g. the backend handler) no longer grant a false attestation.
+func (s *Service) CompleteModule(ctx context.Context, userID, moduleID string, score, passingScore int) error {
 	// Upsert progress record.
 	query := `
 		INSERT INTO user_training_progress (user_id, module_id, status, started_at, completed_at, score)
@@ -348,7 +361,7 @@ func (s *Service) CompleteModule(ctx context.Context, userID, moduleID string, s
 		roleARN := s.getUserRoleARN(ctx, userID)
 		if roleARN != "" {
 			expiresAt := time.Now().Add(defaultTrainingExpiry)
-			if tagErr := s.writeAttestTags(ctx, roleARN, moduleID, expiresAt); tagErr != nil {
+			if tagErr := s.writeAttestTags(ctx, roleARN, moduleID, score, passingScore, expiresAt); tagErr != nil {
 				// Non-fatal: log but don't fail training completion.
 				log.Printf("ark/training: could not write attest tags for user %s module %s: %v", userID, moduleID, tagErr)
 			}
@@ -368,37 +381,87 @@ func (s *Service) getUserRoleARN(ctx context.Context, userID string) string {
 	return roleARN
 }
 
-// writeAttestTags writes attest:* IAM role tags when training is completed.
-// Enables attest's principal resolver to read training status for Cedar evaluation.
-func (s *Service) writeAttestTags(ctx context.Context, roleARN, moduleID string, expiresAt time.Time) error {
-	tagKey, ok := moduleTagMap[moduleID]
-	if !ok {
-		return nil // no attest mapping for this module
+// writeAttestTags writes attest:* IAM role tags when training is appraised as
+// passed. The verdict and tag set are produced through the provabl/evidence
+// kernel: a Copland term Seq(Nonce, Seq(Meas, Sig)) is run and appraised, and the
+// lowered Cedar attributes are translated to IAM tags by tagsFromAttrs. An
+// unmapped module (NotApplicable) or a failing score yields zero tags and writes
+// nothing — matching, respectively, the old "no mapping" no-op and the intended
+// "no attestation without a pass" behavior.
+func (s *Service) writeAttestTags(ctx context.Context, roleARN, moduleID string, score, passingScore int, expiresAt time.Time) error {
+	tagKey := TagForModule(moduleID) // "" => unmapped => NotApplicable in the measurer
+	input := qualifyasp.Input{
+		ModuleID:     moduleID,
+		TagKey:       tagKey,
+		ExpiryTagKey: ModuleExpiryTag(tagKey),
+		Score:        score,
+		PassingScore: passingScore,
+		ExpiresAt:    expiresAt.Format(time.RFC3339),
+	}
+
+	reg := asp.NewRegistry()
+	if err := reg.Register(qualifyasp.Provider(input)); err != nil {
+		return fmt.Errorf("register training provider: %w", err)
+	}
+	am, err := qualifyasp.NewEphemeralAM()
+	if err != nil {
+		return err
+	}
+	c := cvm.New(reg, am, am, nil)
+
+	protocol := term.Seq(
+		term.Nonce(),
+		term.Seq(
+			term.Meas(term.Self, qualifyasp.ID, qualifyasp.Target(roleARN), term.Params{}),
+			term.Sig(),
+		),
+	)
+	bundle, ch, err := c.Run(ctx, protocol)
+	if err != nil {
+		return fmt.Errorf("run attestation: %w", err)
+	}
+	verdict, err := c.Appraise(ctx, bundle, ch)
+	if err != nil {
+		return fmt.Errorf("appraise: %w", err)
+	}
+
+	tags := tagsFromAttrs(lower.ToAttributes(verdict))
+	if len(tags) == 0 {
+		// Unmapped module or failing score — nothing to write.
+		return nil
 	}
 
 	roleName := extractRoleName(roleARN)
 	if roleName == "" {
 		return fmt.Errorf("could not extract role name from ARN: %s", roleARN)
 	}
-
-	expiryKey := ModuleExpiryTag(tagKey)
-	tags := []iamtypes.Tag{
-		{Key: aws.String(tagKey), Value: aws.String("true")},
-	}
-	if expiryKey != "" {
-		tags = append(tags, iamtypes.Tag{
-			Key: aws.String(expiryKey), Value: aws.String(expiresAt.Format(time.RFC3339)),
-		})
-	}
-
-	_, err := s.iamTagger.TagRole(ctx, &iam.TagRoleInput{
+	if _, err := s.iamTagger.TagRole(ctx, &iam.TagRoleInput{
 		RoleName: aws.String(roleName),
 		Tags:     tags,
-	})
-	if err != nil {
+	}); err != nil {
 		return fmt.Errorf("tagging IAM role %s: %w", roleName, err)
 	}
 	return nil
+}
+
+// tagsFromAttrs is the single chokepoint translating lowered kernel attributes
+// into the []iamtypes.Tag attest reads. It emits ONLY attest:* keyed attributes,
+// copied verbatim — skipping the synthetic "attested" and any kernel "training.*"
+// markers — so an unmapped (NotApplicable) or failed verdict yields zero tags.
+// Result is sorted by key for deterministic output.
+func tagsFromAttrs(attrs map[string]lower.Attr) []iamtypes.Tag {
+	keys := make([]string, 0, len(attrs))
+	for k := range attrs {
+		if qualifyasp.IsAttestTag(k) {
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	tags := make([]iamtypes.Tag, 0, len(keys))
+	for _, k := range keys {
+		tags = append(tags, iamtypes.Tag{Key: aws.String(k), Value: aws.String(attrs[k].Value)})
+	}
+	return tags
 }
 
 // extractRoleName extracts the role name from an IAM role ARN.
