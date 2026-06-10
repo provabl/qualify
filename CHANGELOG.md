@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ### Added
 
+- **Versioned `attest:*` tag schema contract** (closes #32): the `attest:*` IAM tag namespace shared
+  with attest is now anchored by a canonical, machine-readable
+  `internal/training/attest-tags-schema.json` (byte-identical with attest's copy) plus a
+  `SchemaVersion` constant. A conformance test (`internal/training/tags_schema_test.go`) locks
+  qualify's tag constants, `moduleTagMap`, and `ModuleExpiryTag` to the schema, so any key drift
+  fails CI instead of silently breaking Cedar evaluation. No new module dependency (the two
+  products stay decoupled — the byte-identical schema + shared `SchemaVersion` are the contract).
+  See attest's `docs/integrations/qualify.md`.
 - **`attest:*` IAM tags written through the provabl/evidence kernel** (closes #38): training-module
   completion now appraises via the evidence kernel `(ASP, appraiser)` pair and lowers the verdict to
   the `attest:*` role tags attest's principal resolver reads, instead of writing tags directly.

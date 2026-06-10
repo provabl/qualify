@@ -3,23 +3,68 @@
 
 package training
 
+import (
+	_ "embed"
+	"encoding/json"
+	"fmt"
+)
+
 // attest:* IAM tag schema — single source of truth for qualify.
 //
 // qualify writes these tags to researchers' IAM roles on training completion.
 // attest's principal resolver (internal/principal/resolver.go) reads them
 // to populate Cedar principal attributes during access evaluation.
 //
-// Schema version: 1
-//
-// IMPORTANT: Both repos must agree on these key strings. If any key changes,
-// update this file AND attest's principal resolver in the same release.
+// IMPORTANT: Both repos must agree on these key strings AND on SchemaVersion. The
+// canonical contract is attest-tags-schema.json (embedded below, byte-identical with
+// attest's pkg/schema/attest-tags-schema.json); the conformance test in
+// tags_schema_test.go locks these constants — and moduleTagMap / ModuleExpiryTag —
+// to it. If any key changes, update the schema JSON in BOTH repos and bump
+// SchemaVersion in the same release.
 // See: https://github.com/provabl/qualify/issues/32
 //
 // Key naming convention:
 //
 //	attest:<capability>            boolean flag ("true")
 //	attest:<capability>-expiry     RFC3339 timestamp of when the flag expires
+
+// SchemaVersion is the version of the attest:* IAM tag contract shared with attest.
+// It MUST equal the "version" field of the embedded canonical schema and the same
+// constant in attest's pkg/schema/tags.go. Bump it (in both repos, same release)
+// whenever a tag key is added, removed, or renamed.
+const SchemaVersion = 1
+
+// canonicalTagsSchemaJSON is the byte-identical canonical schema, also present in
+// attest at pkg/schema/attest-tags-schema.json.
 //
+//go:embed attest-tags-schema.json
+var canonicalTagsSchemaJSON []byte
+
+// TagSchemaEntry is one row of the canonical schema.
+type TagSchemaEntry struct {
+	Key    string `json:"key"`
+	Writer string `json:"writer"` // "qualify" | "attest" | "legacy"
+	Type   string `json:"type"`   // "bool" | "timestamp" | "string"
+	Module string `json:"module,omitempty"`
+	Expiry string `json:"expiry,omitempty"`
+}
+
+// TagSchema is the parsed canonical schema.
+type TagSchema struct {
+	Version   int              `json:"version"`
+	Namespace string           `json:"namespace"`
+	Tags      []TagSchemaEntry `json:"tags"`
+}
+
+// LoadTagSchema parses the embedded canonical attest:* tag schema.
+func LoadTagSchema() (*TagSchema, error) {
+	var s TagSchema
+	if err := json.Unmarshal(canonicalTagsSchemaJSON, &s); err != nil {
+		return nil, fmt.Errorf("parse canonical attest-tags-schema.json: %w", err)
+	}
+	return &s, nil
+}
+
 // Training completion tags (written by svc.CompleteModule):
 const (
 	TagCUITraining              = "attest:cui-training"
