@@ -115,6 +115,8 @@ qualify agent (local)
 
 qualify writes IAM tags in the format `attest:<training-id> = true` with a companion `attest:<training-id>-expiry = <ISO8601>`. attest's Cedar PDP reads these during access evaluation. Tags are written to the role registered via `qualify lab register-role`.
 
+The `attest:*` tag contract is a **versioned schema** shared with attest (qualify#32). The canonical, machine-readable schema is [`internal/training/attest-tags-schema.json`](internal/training/attest-tags-schema.json) — byte-identical to attest's `pkg/schema/attest-tags-schema.json`. A conformance test (`internal/training/tags_schema_test.go`) locks qualify's tag constants, `moduleTagMap`, and `ModuleExpiryTag` to that schema, and checks `SchemaVersion` matches, so any key drift fails CI instead of silently breaking Cedar evaluation. To change a key: edit the schema in **both** repos (keep them byte-identical), update the constants, bump `SchemaVersion` in both, and release together. Full contract: attest's `docs/integrations/qualify.md`.
+
 ### Integration with ground
 
 ground's `external_services` config declares that qualify is deployed. ground exports this to `ground-meta.json`; attest reads it to know that training-gated access is in effect.
