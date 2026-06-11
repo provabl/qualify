@@ -28,6 +28,11 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ### Changed
 
+- **SLSA L3 release provenance** (provabl#5): `release.yml` now generates provenance via the
+  `slsa-framework/slsa-github-generator` reusable workflow (isolated, non-falsifiable builder)
+  instead of `actions/attest-build-provenance` (L2). One runner now builds all three binaries
+  (qualify, qualify-agent, qualify-backend) × four targets, signs each, and emits a combined
+  `hashes` output the generator covers with one provenance. The L3 proof is produced on the next tag.
 - **Completed the `ark` → `qualify` rename** (closes #34): renamed `cmd/ark-agent` → `cmd/qualify-agent` and `cmd/ark-backend` → `cmd/qualify-backend`. Build paths, Dockerfiles, release artifact names, and docs updated to match. The binaries were already emitted as `qualify-agent` / `qualify-backend`; the command directories now agree.
 - **Bumped Go directive to 1.26.4** to align with the patched standard library (clears the GO-2026-* advisories).
 
