@@ -32,7 +32,12 @@ import (
 // It MUST equal the "version" field of the embedded canonical schema and the same
 // constant in attest's pkg/schema/tags.go. Bump it (in both repos, same release)
 // whenever a tag key is added, removed, or renamed.
-const SchemaVersion = 1
+//
+// v2 (2026-06): attest:nih-dua-id (string) → attest:nih-dua-ids (set), an
+// attest-written key. qualify declares no constant for it (it is not a
+// writer=qualify key), but the shared version still bumps in lockstep. See
+// provabl ADR 0002 (compute-to-data-access).
+const SchemaVersion = 2
 
 // canonicalTagsSchemaJSON is the byte-identical canonical schema, also present in
 // attest at pkg/schema/attest-tags-schema.json.
@@ -44,7 +49,7 @@ var canonicalTagsSchemaJSON []byte
 type TagSchemaEntry struct {
 	Key    string `json:"key"`
 	Writer string `json:"writer"` // "qualify" | "attest" | "legacy"
-	Type   string `json:"type"`   // "bool" | "timestamp" | "string"
+	Type   string `json:"type"`   // "bool" | "timestamp" | "string" | "set"
 	Module string `json:"module,omitempty"`
 	Expiry string `json:"expiry,omitempty"`
 }
