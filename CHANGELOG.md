@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ### Changed
 
+- **attest:* tag schema → v2** (provabl#11, qualify#32; provabl ADR 0002): the canonical
+  `attest-tags-schema.json` (byte-identical with attest) renames the attest-written `attest:nih-dua-id`
+  (string) to `attest:nih-dua-ids` (a `+`-delimited set), and `SchemaVersion` bumps 1→2. qualify writes
+  no NIH key (it is `writer: "attest"`), so no qualify constant changes — but the shared version moves
+  in lockstep and qualify's conformance test re-locks against the updated schema, which is exactly the
+  cross-repo drift guard qualify#32 exists to provide.
 - **SLSA L3 release provenance** (provabl#5): `release.yml` now generates provenance via the
   `slsa-framework/slsa-github-generator` reusable workflow (isolated, non-falsifiable builder)
   instead of `actions/attest-build-provenance` (L2). One runner now builds all three binaries
