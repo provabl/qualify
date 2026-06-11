@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ### Added
 
+- **`qualify preflight`** (provabl#16): verifies the calling principal holds the IAM action qualify
+  needs (`iam:TagRole`, to write `attest:*` training/identity tags) via read-only
+  `iam:SimulatePrincipalPolicy` against the caller ARN. Renders ✓/✗ per action with remediation;
+  exits non-zero on any deny; fail-closed on an un-callable check. New `internal/preflight`
+  (mock-driven tests). Mirrors attest/ground. See `docs/required-permissions.md`.
 - **Versioned `attest:*` tag schema contract** (closes #32): the `attest:*` IAM tag namespace shared
   with attest is now anchored by a canonical, machine-readable
   `internal/training/attest-tags-schema.json` (byte-identical with attest's copy) plus a
