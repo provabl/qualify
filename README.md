@@ -34,6 +34,15 @@ Completion certificates are saved to `~/.qualify/certificates/`. Re-display any 
 
 ---
 
+## Core concepts
+
+The handful of ideas to hold (terms link to the suite [glossary](https://github.com/provabl/provabl/blob/main/docs/guide/glossary.md)):
+
+- **Training-as-tool** — qualify embeds the security education *in the access workflow*: completing a module is what unlocks access, not a side errand.
+- **[`attest:*` tags](https://github.com/provabl/provabl/blob/main/docs/guide/glossary.md#iam-identity-and-access-management)** — on completion, qualify writes [IAM](https://github.com/provabl/provabl/blob/main/docs/guide/glossary.md#iam-identity-and-access-management) role tags (`attest:cui-training`, `attest:coc-check-current`, …) — the [lowered attribute](https://github.com/provabl/provabl/blob/main/docs/guide/glossary.md#lowered-attribute) attest's PDP reads. The namespace is `attest:*` because it's attest's integration interface.
+- **[evidence kernel](https://github.com/provabl/provabl/blob/main/docs/guide/glossary.md#evidence-kernel) lowering** — completion is appraised through the kernel (a `principal://` pair) and *lowered* to those tags, so the tag carries provenance, not a bare assertion.
+- **qualify the person, not the data** — qualify governs the people plane (training, approval records); the data plane (DUA-gated dataset access, ingestion) is attest/ground/steward.
+
 ## Included training modules
 
 | Module ID | Title | Frameworks |
