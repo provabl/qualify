@@ -33,6 +33,14 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ### Changed
 
+- **attest:* tag schema → v3** (provabl ADR 0003; epic provabl#30): the canonical
+  `attest-tags-schema.json` (byte-identical with attest) becomes the **complete** namespace registry —
+  adds vet/nitro/tpm producer tags (`attest:vetted`, `attest:pcr<N>`, `attest:enclave-attested`,
+  `attest:boot-attested`, the last two splitting the conflated `attest:nitro-attested`). None are
+  `writer:qualify`, so **no qualify constant changes** — but the shared `SchemaVersion` bumps 2→3 in
+  lockstep, the `TagSchemaEntry` struct gains a `Pattern` field + new `writer` values, and qualify's
+  writer-scoped conformance test re-locks against the updated registry. The cross-repo drift guard
+  (qualify#32) extends to the whole namespace.
 - **attest:* tag schema → v2** (provabl#11, qualify#32; provabl ADR 0002): the canonical
   `attest-tags-schema.json` (byte-identical with attest) renames the attest-written `attest:nih-dua-id`
   (string) to `attest:nih-dua-ids` (a `+`-delimited set), and `SchemaVersion` bumps 1→2. qualify writes
