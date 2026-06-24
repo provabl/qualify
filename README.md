@@ -17,6 +17,13 @@ qualify train status                   # show completion and expiry
 
 ## How it works
 
+```mermaid
+flowchart LR
+    researcher["researcher<br/>completes training"] --> qualify["<b>qualify</b><br/>train + record approvals"]
+    qualify --> tags["attest:* IAM role tags<br/>(cui-training, coc-check-current, …)"]
+    tags -->|"principal.* attributes"| attest["<b>attest</b><br/>Cedar PDP gates access"]
+```
+
 1. **`attest compile`** produces a crosswalk that maps compliance frameworks to required training modules (e.g., CMMC Level 2 → CUI Fundamentals + Security Awareness).
 2. **`qualify train required`** reads the active attest frameworks and shows which modules the user needs.
 3. **`qualify train start <module>`** presents sections of content and a quiz. Progress is saved between sessions (`~/.qualify/progress/`).
