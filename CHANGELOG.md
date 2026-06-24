@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ### Added
 
+
+- **Added a `Security Scan` workflow** (`.github/workflows/security.yml`): govulncheck + Trivy filesystem (dependency) + Trivy IaC scans on every push/PR and weekly, blocking on HIGH/CRITICAL. Trivy pinned to `v0.36.0`. Brings this repo in line with the rest of the suite — every Provabl tool now self-scans, fitting a security/compliance suite. The scan immediately caught HIGH npm CVEs in the web frontend (@remix-run/router CVE-2026-22029 and others); fixed by refreshing `web/package-lock.json` (react-router-dom tree + `npm audit fix`) — 4 HIGH → 0, frontend still builds. (qualify's web frontend JS deps are out of scope for this Go/IaC scan — a follow-up.)
 - **`qualify preflight`** (provabl#16): verifies the calling principal holds the IAM action qualify
   needs (`iam:TagRole`, to write `attest:*` training/identity tags) via read-only
   `iam:SimulatePrincipalPolicy` against the caller ARN. Renders ✓/✗ per action with remediation;
