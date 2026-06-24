@@ -37,7 +37,13 @@ import (
 // attest-written key. qualify declares no constant for it (it is not a
 // writer=qualify key), but the shared version still bumps in lockstep. See
 // provabl ADR 0002 (compute-to-data-access).
-const SchemaVersion = 2
+//
+// v3 (2026-06): the schema becomes the complete attest:* namespace registry —
+// adds vet/nitro/tpm producer tags (attest:vetted, attest:pcr<N>,
+// attest:enclave-attested, attest:boot-attested). None are writer=qualify, so no
+// qualify constant changes, but the shared version bumps in lockstep. See provabl
+// ADR 0003 (attest-tag-namespace-no-conflation).
+const SchemaVersion = 3
 
 // canonicalTagsSchemaJSON is the byte-identical canonical schema, also present in
 // attest at pkg/schema/attest-tags-schema.json.
@@ -45,13 +51,14 @@ const SchemaVersion = 2
 //go:embed attest-tags-schema.json
 var canonicalTagsSchemaJSON []byte
 
-// TagSchemaEntry is one row of the canonical schema.
+// TagSchemaEntry is one row of the canonical registry.
 type TagSchemaEntry struct {
-	Key    string `json:"key"`
-	Writer string `json:"writer"` // "qualify" | "attest" | "legacy"
-	Type   string `json:"type"`   // "bool" | "timestamp" | "string" | "set"
-	Module string `json:"module,omitempty"`
-	Expiry string `json:"expiry,omitempty"`
+	Key     string `json:"key"`
+	Writer  string `json:"writer"` // "qualify" | "attest" | "vet" | "nitro" | "tpm" | "legacy"
+	Type    string `json:"type"`   // "bool" | "timestamp" | "string" | "set"
+	Module  string `json:"module,omitempty"`
+	Expiry  string `json:"expiry,omitempty"`
+	Pattern bool   `json:"pattern,omitempty"` // true if Key is a family (e.g. attest:pcr<N>)
 }
 
 // TagSchema is the parsed canonical schema.
