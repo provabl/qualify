@@ -2,6 +2,8 @@
 
 **Compliance training and access gating for AWS Secure Research Environments.**
 
+> **Boundary:** qualify owns the **people plane** — it trains researchers and records their approvals, writing the `attest:*` IAM tags attest's PDP reads. Where vet qualifies the *software* and steward governs the *data*, qualify qualifies the *person*. It does **not** decide access (attest does) or move data (steward does).
+
 qualify is the training layer of the [Provabl](https://provabl.dev) suite. Researchers complete compliance training through an interactive CLI; completion writes IAM tags to their role; attest's Cedar PDP grants or denies access based on those tags.
 
 ```
