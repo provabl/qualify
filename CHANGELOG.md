@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-21
+
 ### Security
 
 - **Bump Go 1.26.4 → 1.26.5** to clear **GO-2026-5856** (a `crypto/tls` standard-library vulnerability, fixed in go1.26.5). govulncheck flagged it as symbol-reachable via qualify's TLS calls (AWS IAM SDK, HTTPS). Toolchain bump only — no code changes.
@@ -146,5 +148,8 @@ First release — Foundation milestone complete.
 - `database.New`: error messages never include the DSN (which contains the password).
 - Probe interface (ground): validated against `^[a-z0-9][a-z0-9-]{0,62}$`; relative paths rejected.
 
-[Unreleased]: https://github.com/provabl/qualify/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/provabl/qualify/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/provabl/qualify/compare/v0.1.2...v0.2.0
+[0.1.2]: https://github.com/provabl/qualify/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/provabl/qualify/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/provabl/qualify/releases/tag/v0.1.0
