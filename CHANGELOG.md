@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 ### Security
 
 - **Bump Go 1.26.4 → 1.26.5** to clear **GO-2026-5856** (a `crypto/tls` standard-library vulnerability, fixed in go1.26.5). govulncheck flagged it as symbol-reachable via qualify's TLS calls (AWS IAM SDK, HTTPS). Toolchain bump only — no code changes.
+- **Bump AWS SDK** (`service/s3` v1.93.2 → v1.97.3, `aws/protocol/eventstream` v1.7.4 → v1.7.8) to clear **GO-2026-5764** (a DoS panic in the AWS SDK for Go v2 EventStream decoder). It was symbol-reachable via `internal/agent/aws` (S3/STS client init) + `internal/preflight`; unlike the other suite repos, qualify was pinned to the older SDK, so its scheduled scan flagged both CVEs. govulncheck now reports zero reachable vulnerabilities.
 
 ### Added
 
