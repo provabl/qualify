@@ -163,9 +163,18 @@ func main() {
 func setupRouter(authCfg auth.Config, auditSvc *audit.Service, trainingSvc *training.Service) http.Handler {
 	r := chi.NewRouter()
 
-	// Middleware stack
+	// Middleware stack.
+	//
+	// Deliberately NO middleware.RealIP: it overwrites r.RemoteAddr with the
+	// leftmost X-Forwarded-For (or True-Client-IP / X-Real-IP) value whether or
+	// not a trusted proxy set it, so any client can forge the address we log
+	// (GHSA-3fxj-6jh8-hvhx / -rjr7-jggh-pgcp / -9g5q-2w5x-hmxf; chi deprecated it
+	// in v5.3.0 rather than fixing it). Without it r.RemoteAddr is the true TCP
+	// peer. This matters for a compliance tool: the request log is operator
+	// evidence, and a forgeable origin makes it unreliable. If qualify ever runs
+	// behind a load balancer, parse X-Forwarded-For against a configured trusted
+	// -proxy list — don't re-add RealIP.
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
 	r.Use(loggerMiddleware)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Heartbeat("/ping"))

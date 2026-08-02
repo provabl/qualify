@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Security
+
+- **Removed chi's `middleware.RealIP` from both HTTP servers** (and bumped `github.com/go-chi/chi/v5`
+  v5.2.3 → v5.3.0), clearing **GO-2026-5774**, **GO-2026-5775**, and **GO-2026-5777**. `RealIP`
+  rewrites `r.RemoteAddr` from the leftmost `X-Forwarded-For` (or `True-Client-IP` / `X-Real-IP`)
+  value whether or not a trusted proxy set it, so **any client could forge the client address qualify
+  logs**. All three advisories were symbol-reachable — `qualify-agent` and `qualify-backend` both
+  mounted it.
+  **The version bump alone is not a fix:** chi v5.3.0 *deprecates* `RealIP` rather than repairing it
+  (the design can't distinguish a proxy-set header from a forged one), so upgrading only silences
+  govulncheck. Removing the middleware is what actually closes the hole — with it gone,
+  `r.RemoteAddr` is the true TCP peer. Neither server sits behind a proxy, so nothing is lost.
+  This is a log-integrity fix, not an evidence-integrity one: the spoofable value reached the `slog`
+  request line (`remote_addr`), *not* the training audit record — `audit.Entry.IPAddress` is
+  currently never populated. It still matters for a compliance tool, whose request logs are operator
+  evidence. Guarded by regression tests that assert the production middleware chain omits `RealIP`
+  *and* that all three spoof headers leave `RemoteAddr` untouched, since a future chi bump won't
+  re-fix this. If qualify is ever fronted by a load balancer, parse `X-Forwarded-For` against a
+  configured trusted-proxy list — don't re-add `RealIP`. qualify is the suite's only chi consumer.
+
 ## [0.2.0] - 2026-07-21
 
 ### Security
