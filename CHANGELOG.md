@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   *and* that all three spoof headers leave `RemoteAddr` untouched, since a future chi bump won't
   re-fix this. If qualify is ever fronted by a load balancer, parse `X-Forwarded-For` against a
   configured trusted-proxy list — don't re-add `RealIP`. qualify is the suite's only chi consumer.
+- **Bump Go 1.26.5 → 1.26.6** to clear five Go standard-library advisories (**GO-2026-6218**,
+  **GO-2026-6090**, **GO-2026-6088**, **GO-2026-5972**, **GO-2026-5026** — `net/url`, `crypto/tls`,
+  `encoding/xml`, `encoding/asn1`, and `x/net/idna` via `net/http`), all fixed in go1.26.6.
+  Toolchain bump only — no code changes.
 
 ## [0.2.0] - 2026-07-21
 
